@@ -26,7 +26,7 @@ const BiotubeAdminPanel = ({ token, isDark }) => {
 
   const BACKEND_URL = (() => {
     if (process.env.REACT_APP_BACKEND_URL) return process.env.REACT_APP_BACKEND_URL;
-    if (window.location.hostname.includes('vercel.app')) return 'https://sbzoomuseum.onrender.com';
+    if (window.location.hostname.includes('vercel.app')) return 'https://zoomuseumsbes.onrender.com';
     return 'http://localhost:8000';
   })();
   const API = `${BACKEND_URL}/api`;
