@@ -630,7 +630,7 @@ const Homepage = () => {
               </div>
               <div className="mt-4 pt-4 border-t border-gray-300 dark:border-gray-600">
                 <div className="flex items-center justify-center">
-                  <GoogleOAuthProvider clientId="834932134878-mu46t9129ovalq4pcqofre2mgbu37aj1.apps.googleusercontent.com">
+                  <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
                     <div className="w-full google-signin-button">
                       <GoogleLogin 
                         onSuccess={handleGoogleLogin} 
