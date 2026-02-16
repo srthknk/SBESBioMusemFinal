@@ -270,6 +270,7 @@ async def seed_database():
             "initiative_text": "An Initiative by",
             "college_name": "SBES College of Science",
             "department_name": "Zoology Department",
+            "department_name_font_size": 24,
             "logo_url": None,
             "primary_color": "#7c3aed",
             "secondary_color": "#3b82f6",

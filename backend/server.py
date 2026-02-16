@@ -153,6 +153,9 @@ async def init_mongodb():
                     if "font_family" not in existing_settings:
                         update_data["font_family"] = "Poppins"
                         needs_update = True
+                    if "department_name_font_size" not in existing_settings:
+                        update_data["department_name_font_size"] = 24
+                        needs_update = True
                     
                     if needs_update:
                         update_data["updated_at"] = datetime.now().isoformat()
@@ -160,7 +163,7 @@ async def init_mongodb():
                             {"id": "site_settings"},
                             {"$set": update_data}
                         )
-                        print("[OK] ✓ Migrated site_settings with new color and font fields")
+                        print("[OK] ✓ Migrated site_settings with new color, font, and department font size fields")
             except Exception as e:
                 print(f"[WARN] Failed to migrate site_settings: {str(e)[:100]}")
             # ==================== END MIGRATION ====================
@@ -444,6 +447,7 @@ class SiteSettings(BaseModel):
     initiative_text: str = "An Initiative by"
     college_name: str = "SBES College of Science"
     department_name: str = "Zoology Department"
+    department_name_font_size: int = 24
     logo_url: Optional[str] = None
     primary_color: str = "#7c3aed"
     secondary_color: str = "#3b82f6"
@@ -457,6 +461,7 @@ class SiteSettingsUpdate(BaseModel):
     initiative_text: Optional[str] = None
     college_name: Optional[str] = None
     department_name: Optional[str] = None
+    department_name_font_size: Optional[int] = None
     logo_url: Optional[str] = None
     primary_color: Optional[str] = None
     secondary_color: Optional[str] = None
@@ -2822,6 +2827,7 @@ async def get_site_settings():
                 "initiative_text": "An Initiative by",
                 "college_name": "SBES College of Science",
                 "department_name": "Zoology Department",
+                "department_name_font_size": 24,
                 "logo_url": None,
                 "primary_color": "#7c3aed",
                 "secondary_color": "#3b82f6",
@@ -2834,6 +2840,7 @@ async def get_site_settings():
         settings.setdefault("secondary_color", "#3b82f6")
         settings.setdefault("font_url", "")
         settings.setdefault("font_family", "Poppins")
+        settings.setdefault("department_name_font_size", 24)
         return settings
     except Exception as e:
         logging.error(f"Error fetching site settings: {e}")

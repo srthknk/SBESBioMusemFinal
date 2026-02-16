@@ -383,7 +383,7 @@ const Homepage = () => {
       </header>
 
       {/* Hero Section with Video Background */}
-      <div className="relative min-h-screen overflow-hidden flex flex-col items-center justify-center">
+      <div className="relative w-full h-screen overflow-hidden flex flex-col items-center justify-start -mt-0">
         <video 
           autoPlay 
           muted 
@@ -399,59 +399,65 @@ const Homepage = () => {
         <div className="absolute inset-0 bg-black bg-opacity-60"></div>
         
         {/* Content Container */}
-        <div className="relative z-10 w-full h-full flex flex-col items-center justify-center px-4 sm:px-6 py-12 sm:py-16">
+        <div className="relative z-10 w-full h-full flex flex-col items-center justify-center sm:justify-start px-3 sm:px-6 pt-0 sm:pt-1 md:pt-2.5 -translate-y-12 sm:translate-y-0">
           {/* Logo Display - Top */}
           {siteSettings?.logo_url && (
-            <div className="flex justify-center mb-8">
+            <div className="flex justify-center mb-2 sm:mb-3 md:mb-4">
               <img
                 src={siteSettings.logo_url}
                 alt="Institution Logo"
-                className="h-24 sm:h-32 md:h-40 object-contain drop-shadow-xl"
+                className="h-16 sm:h-24 md:h-32 lg:h-36 object-contain drop-shadow-xl"
               />
             </div>
           )}
           
           {/* Initiative Text */}
-          <p className="text-xs sm:text-sm font-semibold mb-3 tracking-wide text-white drop-shadow-lg">
+          <p className="text-xs sm:text-sm font-semibold mb-1 sm:mb-1.5 tracking-wide text-white drop-shadow-lg">
             {siteSettings?.initiative_text || 'AN INITIATIVE BY'}
           </p>
           
           {/* College Name */}
-          <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-white text-center drop-shadow-lg">
+          <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold mb-0.5 sm:mb-1 text-white text-center drop-shadow-lg">
             {siteSettings?.college_name || 'S.B.E.S. COLLEGE OF SCIENCE'}
           </h2>
           
           {/* Department Name */}
-          <p className="text-xs sm:text-sm font-semibold mb-8 tracking-wide text-white drop-shadow-lg">
+          <p 
+            className="font-semibold mb-2 sm:mb-3 md:mb-4 tracking-wide text-white drop-shadow-lg"
+            style={{
+              fontSize: `${Math.max(10, Math.min(siteSettings?.department_name_font_size || 12, 20))}px`
+            }}
+          >
             {siteSettings?.department_name || 'DEPARTMENT OF ZOOLOGY | ZOOLOGICAL MUSEUM'}
           </p>
           
           {/* Divider Line */}
-          <div className="w-full max-w-md h-px bg-white mb-8 opacity-80"></div>
+          <div className="w-full max-w-xs sm:max-w-sm md:max-w-md h-px bg-white mb-2 sm:mb-3 md:mb-4 opacity-80"></div>
           
           {/* Title */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white text-center mb-6 leading-tight drop-shadow-lg max-w-4xl">
+          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-white text-center mb-2 sm:mb-3 md:mb-4 leading-tight drop-shadow-lg max-w-4xl px-2">
             {siteSettings?.website_name || 'BioMuseum'} - A Journey Through Living Wonders
           </h1>
           
           {/* Description */}
-          <p className="text-sm sm:text-base lg:text-lg text-white text-center mb-8 drop-shadow-md max-w-3xl leading-relaxed">
+          <p className="text-xs sm:text-sm md:text-base lg:text-lg text-white text-center mb-3 sm:mb-4 md:mb-5 drop-shadow-md max-w-3xl leading-relaxed px-2">
             Discover the wonders of life science through our interactive biology museum. Learn about diverse organisms and their fascinating characteristics from {siteSettings?.college_name || 'SBES College of Science'}.
           </p>
 
           {/* Explore Button */}
           <button
             onClick={() => navigate('/organisms')}
-            className="px-8 sm:px-10 py-3 sm:py-4 text-black font-bold rounded-lg transition-all duration-300 ease-out transform hover:scale-105 hover:shadow-2xl active:scale-95"
+            className="px-5 sm:px-7 md:px-9 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm md:text-base font-bold rounded-lg transition-all duration-300 ease-out transform hover:scale-105 hover:shadow-2xl active:scale-95"
             style={{
-              backgroundColor: isDark ? '#f3f4f6' : '#ffffff',
-              boxShadow: isDark ? '0 4px 20px rgba(243, 244, 246, 0.4)' : '0 4px 20px rgba(0, 0, 0, 0.2)'
+              backgroundColor: isDark ? '#000000' : '#ffffff',
+              color: isDark ? '#ffffff' : '#000000',
+              boxShadow: isDark ? '0 4px 20px rgba(0, 0, 0, 0.6)' : '0 4px 20px rgba(0, 0, 0, 0.2)'
             }}
             onMouseEnter={(e) => {
-              e.target.style.backgroundColor = isDark ? '#e5e7eb' : '#f0f0f0';
+              e.target.style.backgroundColor = isDark ? '#1a1a1a' : '#f0f0f0';
             }}
             onMouseLeave={(e) => {
-              e.target.style.backgroundColor = isDark ? '#f3f4f6' : '#ffffff';
+              e.target.style.backgroundColor = isDark ? '#000000' : '#ffffff';
             }}
           >
             <i className="fa-solid fa-compass mr-2"></i>Explore

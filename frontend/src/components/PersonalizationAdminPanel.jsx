@@ -31,6 +31,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
         initiative_text: siteSettings.initiative_text || '',
         college_name: siteSettings.college_name || '',
         department_name: siteSettings.department_name || '',
+        department_name_font_size: siteSettings.department_name_font_size || 24,
         logo_url: siteSettings.logo_url || '',
         primary_color: siteSettings.primary_color || '#7c3aed',
         secondary_color: siteSettings.secondary_color || '#3b82f6',
@@ -253,6 +254,59 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
               />
               <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                 Name of your department
+              </p>
+            </div>
+
+            {/* Department Name Font Size */}
+            <div>
+              <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                <i className="fa-solid fa-text-height mr-2 text-orange-400"></i>
+                Department Name Font Size
+              </label>
+              <div className="flex gap-4 items-end">
+                <div className="flex-1">
+                  <input
+                    type="range"
+                    name="department_name_font_size"
+                    min="12"
+                    max="60"
+                    value={formData.department_name_font_size || 24}
+                    onChange={handleInputChange}
+                    className={`w-full h-2 rounded-lg appearance-none cursor-pointer ${
+                      isDark
+                        ? 'bg-gray-700'
+                        : 'bg-gradient-to-r from-orange-200 to-orange-400'
+                    }`}
+                  />
+                </div>
+                <input
+                  type="number"
+                  name="department_name_font_size"
+                  min="12"
+                  max="60"
+                  value={formData.department_name_font_size || 24}
+                  onChange={handleInputChange}
+                  className={`w-20 px-3 py-3 rounded-lg border-2 text-center font-semibold transition-all ${
+                    isDark
+                      ? 'bg-gray-700 border-gray-600 text-white focus:border-orange-500 focus:ring-2 focus:ring-orange-900'
+                      : 'border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200'
+                  } focus:outline-none`}
+                />
+                <span className={`text-lg font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>px</span>
+              </div>
+              <div className={`mt-4 p-4 rounded-lg ${isDark ? 'bg-gray-700 border border-gray-600' : 'bg-orange-50 border border-orange-200'}`}>
+                <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  <strong>Preview:</strong>
+                </p>
+                <p
+                  style={{ fontSize: `${formData.department_name_font_size || 24}px`, lineHeight: '1.2' }}
+                  className={`font-semibold mt-2 ${isDark ? 'text-orange-300' : 'text-orange-600'}`}
+                >
+                  {formData.department_name || 'Department Name'}
+                </p>
+              </div>
+              <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Set the font size for your department name (12px - 60px)
               </p>
             </div>
 

@@ -251,7 +251,7 @@ const BioMuseumAIChatbot = () => {
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="Ask about Biology..."
                 disabled={loading}
-                className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 text-sm sm:text-base font-medium"
+                className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 text-sm sm:text-base font-medium bg-white text-black placeholder-gray-500"
               />
               <button
                 type="submit"
