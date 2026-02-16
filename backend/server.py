@@ -487,6 +487,8 @@ async def delete_organism_db(organism_id):
 # Helper functions
 def generate_qr_code(organism_id: str) -> str:
     frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+    # Use first URL if multiple are configured
+    frontend_url = frontend_url.split(',')[0].strip()
     qr_url = f"{frontend_url}/organism/{organism_id}"
     
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
