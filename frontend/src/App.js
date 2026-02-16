@@ -630,21 +630,19 @@ const Homepage = () => {
               </div>
               <div className="mt-4 pt-4 border-t border-gray-300 dark:border-gray-600">
                 <div className="flex items-center justify-center">
-                  <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
-                    <div className="w-full google-signin-button">
-                      <GoogleLogin 
-                        onSuccess={handleGoogleLogin} 
-                        onError={(error) => {
-                          console.error('Google login error:', error);
-                          alert(`Google login failed: ${error?.error || 'Unknown error'}`);
-                        }}
-                        theme={isDark ? 'dark' : 'light'}
-                        size="large"
-                        width="100%"
-                        text="signin_with"
-                      />
-                    </div>
-                  </GoogleOAuthProvider>
+                  <div className="w-full google-signin-button">
+                    <GoogleLogin 
+                      onSuccess={handleGoogleLogin} 
+                      onError={(error) => {
+                        console.error('Google login error:', error);
+                        alert(`Google login failed: ${error?.error || 'Unknown error'}`);
+                      }}
+                      theme={isDark ? 'dark' : 'light'}
+                      size="large"
+                      width="100%"
+                      text="signin_with"
+                    />
+                  </div>
                 </div>
                 <p className={`text-center text-xs mt-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   Only Authorized E-mails can Access Admin Panel
