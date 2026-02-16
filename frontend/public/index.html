@@ -9,8 +9,10 @@
         <meta name="keywords" content="biology, museum, science education, interactive learning, biology videos, educational platform" />
         <meta name="author" content="BioMuseum Team" />
         <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+        <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
         
-        <!-- Open Graph / Social Media -->
+        <!-- Site Links Search Box -->
+        <meta name="google-site-verification" content="gekQxuDI-YEBmgM7yz2Ak2jol0guzPWSTgu6WeurDuQ" />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://zoomuseumsb.vercel.app/" />
         <meta property="og:title" content="BioMuseum - Interactive Biology Learning Platform" />
@@ -39,18 +41,121 @@
         <script type="application/ld+json">
         {
           "@context": "https://schema.org",
-          "@type": "EducationalOrganization",
+          "@type": "Organization",
           "name": "BioMuseum",
-          "description": "Interactive biology museum platform with educational content",
           "url": "https://zoomuseumsb.vercel.app",
+          "logo": "https://zoomuseumsb.vercel.app/logo.png",
+          "description": "Interactive biology museum platform with educational content, videos, and AI-powered learning tools",
           "sameAs": [
             "https://www.facebook.com/biomuseum",
             "https://twitter.com/biomuseum"
           ],
           "contactPoint": {
             "@type": "ContactPoint",
-            "contactType": "Customer Support"
+            "contactType": "Customer Support",
+            "email": "support@biomuseum.com"
+          },
+          "address": {
+            "@type": "PostalAddress",
+            "addressCountry": "IN"
           }
+        }
+        </script>
+
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": "BioMuseum",
+          "url": "https://zoomuseumsb.vercel.app",
+          "description": "Interactive Biology Learning Platform",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://zoomuseumsb.vercel.app/advanced-search?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        }
+        </script>
+
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://zoomuseumsb.vercel.app"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Explore",
+              "item": "https://zoomuseumsb.vercel.app/organisms"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "BioTube",
+              "item": "https://zoomuseumsb.vercel.app/biotube"
+            },
+            {
+              "@type": "ListItem",
+              "position": 4,
+              "name": "Blogs",
+              "item": "https://zoomuseumsb.vercel.app/blogs"
+            }
+          ]
+        }
+        </script>
+
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": "BioMuseum - Interactive Biology Learning Platform",
+          "description": "Explore the wonders of life science at BioMuseum - Interactive biology museum with videos, AI assistant, and educational content for students and enthusiasts.",
+          "url": "https://zoomuseumsb.vercel.app",
+          "mainEntity": {
+            "@type": "Organization",
+            "name": "BioMuseum"
+          },
+          "hasPart": [
+            {
+              "@type": "WebPage",
+              "name": "Explore Organisms",
+              "url": "https://zoomuseumsb.vercel.app/organisms",
+              "description": "Browse and discover diverse organisms with detailed information and interactive content"
+            },
+            {
+              "@type": "WebPage",
+              "name": "BioTube",
+              "url": "https://zoomuseumsb.vercel.app/biotube",
+              "description": "Watch educational biology videos and learn from expert content"
+            },
+            {
+              "@type": "WebPage",
+              "name": "Blogs",
+              "url": "https://zoomuseumsb.vercel.app/blogs",
+              "description": "Read latest articles and blog posts on biology and science education"
+            },
+            {
+              "@type": "WebPage",
+              "name": "About Us",
+              "url": "https://zoomuseumsb.vercel.app/about-us",
+              "description": "Learn more about BioMuseum team and mission"
+            },
+            {
+              "@type": "WebPage",
+              "name": "Privacy Policy",
+              "url": "https://zoomuseumsb.vercel.app/privacy-policy",
+              "description": "Read our privacy policy and data protection guidelines"
+            }
+          ]
         }
         </script>
         
