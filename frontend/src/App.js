@@ -11,6 +11,7 @@ import BiotubeAdminPanel from './components/BiotubeAdminPanel';
 import AboutUs from './components/AboutUs';
 import BlogHomepage from './components/BlogHomepage';
 import BlogDetailPage from './components/BlogDetailPage';
+import PrivacyPolicy from './components/PrivacyPolicy';
 import BlogAdminPanel from './components/BlogAdminPanel';
 import PersonalizationAdminPanel from './components/PersonalizationAdminPanel';
 import BioMuseumAIChatbot from './components/BioMuseumAIChatbot';
@@ -558,6 +559,18 @@ const Homepage = () => {
                   >
                     <i className="fa-solid fa-book"></i>
                     <span>Blog</span>
+                  </button>
+                </li>
+                <li className="menu-item">
+                  <button
+                    onClick={() => {
+                      navigate('/privacypolicy');
+                      setShowMenu(false);
+                    }}
+                    className="menu-text w-full text-left text-white hover:text-yellow-400 py-3 px-4 rounded-lg hover:bg-gray-700 transition-all duration-300 flex items-center gap-3 text-lg"
+                  >
+                    <i className="fa-solid fa-lock"></i>
+                    <span>Privacy Policy</span>
                   </button>
                 </li>
               </ul>
@@ -3628,6 +3641,12 @@ const BlogDetailWrapper = () => {
   return <BlogDetailPage isDark={isDark} />;
 };
 
+// Privacy Policy Wrapper Component to access theme context
+const PrivacyPolicyWrapper = () => {
+  const { isDark } = React.useContext(ThemeContext);
+  return <PrivacyPolicy isDark={isDark} />;
+};
+
 function App() {
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 
@@ -3651,6 +3670,7 @@ function App() {
                       <Route path="/about" element={<AboutUsWrapper />} />
                       <Route path="/blogs" element={<BlogWrapper />} />
                       <Route path="/blog/:blogId" element={<BlogDetailWrapper />} />
+                      <Route path="/privacypolicy" element={<PrivacyPolicyWrapper />} />
                     </Routes>
                     <BioMuseumAIChatbot />
                   </BrowserRouter>
