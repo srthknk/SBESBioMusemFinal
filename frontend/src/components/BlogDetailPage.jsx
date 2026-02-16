@@ -90,8 +90,8 @@ const BlogDetailPage = ({ isDark }) => {
         <meta name="description" content={blog.subject} />
         <meta property="og:title" content={blog.title} />
         <meta property="og:description" content={blog.subject} />
-        <meta property="og:url" content={`https://biomuseumsbes.vercel.app/blog/${blogId}`} />
-        <link rel="canonical" href={`https://biomuseumsbes.vercel.app/blog/${blogId}`} />
+        <meta property="og:url" content={`https://zoomuseumsb.vercel.app/blog/${blogId}`} />
+        <link rel="canonical" href={`https://zoomuseumsb.vercel.app/blog/${blogId}`} />
       </Helmet>
 
       {/* Header */}
@@ -208,7 +208,7 @@ const BlogDetailPage = ({ isDark }) => {
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center">
             <button
               onClick={() => {
-                const url = `https://biomuseumsbes.vercel.app/blog/${blogId}`;
+                const url = `https://zoomuseumsb.vercel.app/blog/${blogId}`;
                 navigator.clipboard.writeText(url);
                 alert('Link copied to clipboard!');
               }}

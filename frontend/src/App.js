@@ -33,7 +33,7 @@ const BACKEND_URL = (() => {
     return process.env.REACT_APP_BACKEND_URL;
   }
   
-  // On deployed Vercel (biomuseumsbes.vercel.app), use Render backend
+  // On deployed Vercel (zoomuseumsb.vercel.app), use Render backend
   if (window.location.hostname.includes('vercel.app')) {
     return 'https://sbzoomuseum.onrender.com';
   }

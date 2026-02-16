@@ -87,8 +87,8 @@ const BlogHomepage = ({ isDark }) => {
         <meta name="keywords" content="biology blog, science articles, educational content, organism insights, biology education" />
         <meta property="og:title" content="Biology Blog | BioMuseum" />
         <meta property="og:description" content="Explore our collection of biology articles and educational blog posts." />
-        <meta property="og:url" content="https://biomuseumsbes.vercel.app/blogs" />
-        <link rel="canonical" href="https://biomuseumsbes.vercel.app/blogs" />
+        <meta property="og:url" content="https://zoomuseumsb.vercel.app/blogs" />
+        <link rel="canonical" href="https://zoomuseumsb.vercel.app/blogs" />
       </Helmet>
 
       {/* Header */}

@@ -2523,7 +2523,7 @@ async def create_blog(blog: BlogCreate, _: bool = Depends(verify_admin_token)):
     try:
         # Generate QR code for the blog
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr.add_data(f"https://biomuseumsbes.vercel.app/blog/{blog.id if hasattr(blog, 'id') else 'temp'}")
+        qr.add_data(f"https://zoomuseumsb.vercel.app/blog/{blog.id if hasattr(blog, 'id') else 'temp'}")
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
         
@@ -2539,7 +2539,7 @@ async def create_blog(blog: BlogCreate, _: bool = Depends(verify_admin_token)):
         
         # Update QR code with actual blog ID
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr.add_data(f"https://biomuseumsbes.vercel.app/blog/{new_blog.id}")
+        qr.add_data(f"https://zoomuseumsb.vercel.app/blog/{new_blog.id}")
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
         buffered = io.BytesIO()

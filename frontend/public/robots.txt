@@ -5,4 +5,4 @@ Disallow: /api/
 Disallow: /.git
 Disallow: /node_modules
 
-Sitemap: https://biomuseumsbes.vercel.app/sitemap.xml
+Sitemap: https://zoomuseumsb.vercel.app/sitemap.xml

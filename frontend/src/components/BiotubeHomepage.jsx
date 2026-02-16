@@ -116,16 +116,16 @@ const BiotubeHomepage = ({ isDark }) => {
         <meta name="keywords" content="biology videos, educational videos, biology tutorials, science learning, species, ecosystems" />
         <meta property="og:title" content="BioTube - Educational Biology Videos | BioMuseum" />
         <meta property="og:description" content="Watch educational biology videos and tutorials on BioTube." />
-        <meta property="og:url" content="https://biomuseumsbes.vercel.app/biotube" />
+        <meta property="og:url" content="https://zoomuseumsb.vercel.app/biotube" />
         <meta property="og:type" content="website" />
-        <link rel="canonical" href="https://biomuseumsbes.vercel.app/biotube" />
+        <link rel="canonical" href="https://zoomuseumsb.vercel.app/biotube" />
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "VideoCollection",
             "name": "BioTube - Educational Videos",
             "description": "Collection of educational biology videos and tutorials",
-            "url": "https://biomuseumsbes.vercel.app/biotube"
+            "url": "https://zoomuseumsb.vercel.app/biotube"
           })}
         </script>
       </Helmet>

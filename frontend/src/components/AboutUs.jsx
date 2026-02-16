@@ -15,16 +15,16 @@ const AboutUs = ({ isDark }) => {
         <meta name="keywords" content="about us, biology museum, education, science, mission, interactive learning" />
         <meta property="og:title" content={`About ${siteSettings?.website_name || 'BioMuseum'} - Learn Our Mission`} />
         <meta property="og:description" content={`Discover the mission and story of ${siteSettings?.website_name || 'BioMuseum'} - making biology education interactive and accessible.`} />
-        <meta property="og:url" content="https://biomuseumsbes.vercel.app/about" />
+        <meta property="og:url" content="https://zoomuseumsb.vercel.app/about" />
         <meta property="og:type" content="website" />
-        <link rel="canonical" href="https://biomuseumsbes.vercel.app/about" />
+        <link rel="canonical" href="https://zoomuseumsb.vercel.app/about" />
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Organization",
             "name": siteSettings?.website_name || "BioMuseum",
             "description": "Interactive biology museum and educational platform",
-            "url": "https://biomuseumsbes.vercel.app",
+            "url": "https://zoomuseumsb.vercel.app",
             "contactPoint": {
               "@type": "ContactPoint",
               "contactType": "Customer Support"
