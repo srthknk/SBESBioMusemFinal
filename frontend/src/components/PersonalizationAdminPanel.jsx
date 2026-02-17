@@ -138,12 +138,12 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
   };
 
   return (
-    <main className={`flex-1 ${isDark ? 'bg-gray-900' : 'bg-gradient-to-br from-purple-50 to-blue-50'} py-6 px-4`}>
+    <main className={`flex-1 ${isDark ? 'bg-gray-900' : 'bg-gradient-to-br from-purple-50 to-blue-50'} py-4 sm:py-6 px-4`}>
       <div className="max-w-4xl mx-auto">
-        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-purple-200'} rounded-xl shadow-lg p-6 border`}>
+        <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-purple-200'} rounded-xl shadow-lg p-4 sm:p-8 border`}>
           {/* Header */}
-          <div className="mb-8">
-            <h2 className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-800'} flex items-center gap-3 mb-2`}>
+          <div className="mb-6 sm:mb-8">
+            <h2 className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-800'} flex items-center gap-3 mb-2`}>
               <i className="fa-solid fa-wand-magic-sparkles fa-lg text-purple-500"></i>
               Website Personalization
             </h2>
@@ -164,10 +164,10 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
             </div>
           )}
 
-          <form onSubmit={handleSave} className="space-y-8">
+          <form onSubmit={handleSave} className="space-y-4 sm:space-y-8">
             {/* Website Name Section */}
             <div>
-              <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              <label className={`block text-base sm:text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 <i className="fa-solid fa-globe mr-2 text-purple-500"></i>
                 Website Name
               </label>
@@ -177,7 +177,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                 value={formData.website_name}
                 onChange={handleInputChange}
                 placeholder="e.g., BioMuseum"
-                className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                className={`w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-sm sm:text-base ${
                   isDark
                     ? 'bg-gray-700 border-gray-600 text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-900'
                     : 'border-gray-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200'
@@ -190,7 +190,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
 
             {/* Initiative Text */}
             <div>
-              <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              <label className={`block text-base sm:text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 <i className="fa-solid fa-book-open mr-2 text-blue-500"></i>
                 Initiative Text
               </label>
@@ -200,7 +200,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                 value={formData.initiative_text}
                 onChange={handleInputChange}
                 placeholder="e.g., An Initiative by"
-                className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                className={`w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-sm sm:text-base ${
                   isDark
                     ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-900'
                     : 'border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
@@ -213,7 +213,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
 
             {/* College Name */}
             <div>
-              <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              <label className={`block text-base sm:text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 <i className="fa-solid fa-graduation-cap mr-2 text-green-500"></i>
                 College/Institution Name
               </label>
@@ -223,7 +223,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                 value={formData.college_name}
                 onChange={handleInputChange}
                 placeholder="e.g., SBES College of Science"
-                className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                className={`w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-sm sm:text-base ${
                   isDark
                     ? 'bg-gray-700 border-gray-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-900'
                     : 'border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200'
@@ -236,7 +236,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
 
             {/* Department Name */}
             <div>
-              <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              <label className={`block text-base sm:text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 <i className="fa-solid fa-flask mr-2 text-orange-500"></i>
                 Department Name
               </label>
@@ -246,7 +246,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                 value={formData.department_name}
                 onChange={handleInputChange}
                 placeholder="e.g., Zoology Department"
-                className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                className={`w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-sm sm:text-base ${
                   isDark
                     ? 'bg-gray-700 border-gray-600 text-white focus:border-orange-500 focus:ring-2 focus:ring-orange-900'
                     : 'border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200'
@@ -259,11 +259,11 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
 
             {/* Department Name Font Size */}
             <div>
-              <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              <label className={`block text-base sm:text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 <i className="fa-solid fa-text-height mr-2 text-orange-400"></i>
                 Department Name Font Size
               </label>
-              <div className="flex gap-4 items-end">
+              <div className="flex flex-col sm:flex-row gap-4 items-end">
                 <div className="flex-1">
                   <input
                     type="range"
@@ -279,20 +279,22 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                     }`}
                   />
                 </div>
-                <input
-                  type="number"
-                  name="department_name_font_size"
-                  min="12"
-                  max="60"
-                  value={formData.department_name_font_size || 24}
-                  onChange={handleInputChange}
-                  className={`w-20 px-3 py-3 rounded-lg border-2 text-center font-semibold transition-all ${
-                    isDark
-                      ? 'bg-gray-700 border-gray-600 text-white focus:border-orange-500 focus:ring-2 focus:ring-orange-900'
-                      : 'border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200'
-                  } focus:outline-none`}
-                />
-                <span className={`text-lg font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>px</span>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    name="department_name_font_size"
+                    min="12"
+                    max="60"
+                    value={formData.department_name_font_size || 24}
+                    onChange={handleInputChange}
+                    className={`w-16 px-2 py-2 rounded-lg border-2 text-center font-semibold transition-all text-sm ${
+                      isDark
+                        ? 'bg-gray-700 border-gray-600 text-white focus:border-orange-500 focus:ring-2 focus:ring-orange-900'
+                        : 'border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200'
+                    } focus:outline-none`}
+                  />
+                  <span className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>px</span>
+                </div>
               </div>
               <div className={`mt-4 p-4 rounded-lg ${isDark ? 'bg-gray-700 border border-gray-600' : 'bg-orange-50 border border-orange-200'}`}>
                 <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -312,11 +314,11 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
 
             {/* Primary Color */}
             <div>
-              <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              <label className={`block text-base sm:text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 <i className="fa-solid fa-palette mr-2 text-red-500"></i>
                 Primary Color
               </label>
-              <div className="flex gap-4 items-end">
+            <div className="flex flex-col sm:flex-row gap-4 items-end">
                 <div className="flex-1">
                   <input
                     type="color"
@@ -335,7 +337,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                   value={formData.primary_color || '#7c3aed'}
                   onChange={(e) => handleInputChange({ target: { name: 'primary_color', value: e.target.value } })}
                   placeholder="#7c3aed"
-                  className={`flex-1 px-4 py-3 rounded-lg border-2 transition-all font-mono ${
+                  className={`flex-1 sm:flex-none px-3 py-2 rounded-lg border-2 transition-all font-mono text-sm ${
                     isDark
                       ? 'bg-gray-700 border-gray-600 text-white focus:border-red-500 focus:ring-2 focus:ring-red-900'
                       : 'border-gray-300 focus:border-red-500 focus:ring-2 focus:ring-red-200'
@@ -349,11 +351,11 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
 
             {/* Secondary Color */}
             <div>
-              <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              <label className={`block text-base sm:text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 <i className="fa-solid fa-palette mr-2 text-blue-500"></i>
                 Secondary Color
               </label>
-              <div className="flex gap-4 items-end">
+            <div className="flex flex-col sm:flex-row gap-4 items-end">
                 <div className="flex-1">
                   <input
                     type="color"
@@ -372,7 +374,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                   value={formData.secondary_color || '#3b82f6'}
                   onChange={(e) => handleInputChange({ target: { name: 'secondary_color', value: e.target.value } })}
                   placeholder="#3b82f6"
-                  className={`flex-1 px-4 py-3 rounded-lg border-2 transition-all font-mono ${
+                  className={`flex-1 sm:flex-none px-3 py-2 rounded-lg border-2 transition-all font-mono text-sm ${
                     isDark
                       ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-900'
                       : 'border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
@@ -386,7 +388,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
 
             {/* Font URL (Google Fonts/CDN) */}
             <div>
-              <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              <label className={`block text-base sm:text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 <i className="fa-solid fa-font mr-2 text-cyan-500"></i>
                 Font URL (Google Fonts or CDN)
               </label>
@@ -396,7 +398,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                 value={formData.font_url || ''}
                 onChange={handleInputChange}
                 placeholder="e.g., https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700"
-                className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                className={`w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-sm sm:text-base ${
                   isDark
                     ? 'bg-gray-700 border-gray-600 text-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-900'
                     : 'border-gray-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200'
@@ -409,7 +411,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
 
             {/* Font Family Name */}
             <div>
-              <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              <label className={`block text-base sm:text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 <i className="fa-solid fa-type mr-2 text-green-500"></i>
                 Font Family Name
               </label>
@@ -419,7 +421,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                 value={formData.font_family || ''}
                 onChange={handleInputChange}
                 placeholder="e.g., Poppins, Arial, Georgia"
-                className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                className={`w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-sm sm:text-base ${
                   isDark
                     ? 'bg-gray-700 border-gray-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-900'
                     : 'border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200'
@@ -432,7 +434,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
 
             {/* Logo Section */}
             <div>
-              <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              <label className={`block text-base sm:text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 <i className="fa-solid fa-image mr-2 text-indigo-500"></i>
                 Institution Logo
               </label>
@@ -453,21 +455,20 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                 )}
               </div>
 
-              {/* Logo Input Mode Tabs */}
-              <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-4">
                 <button
                   type="button"
                   onClick={() => {
                     setLogoInputMode('file');
                     setLogoUrl('');
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${
+                  className={`flex-1 px-3 sm:px-4 py-2 sm:py-2 rounded-lg font-semibold transition-all text-sm sm:text-base ${
                     logoInputMode === 'file'
                       ? `${isDark ? 'bg-indigo-600 text-white' : 'bg-indigo-600 text-white'}`
                       : `${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`
                   }`}
                 >
-                  <i className="fa-solid fa-upload mr-2"></i>Upload File
+                  <i className="fa-solid fa-upload mr-2"></i><span className="hidden sm:inline">Upload File</span><span className="sm:hidden">Upload</span>
                 </button>
                 <button
                   type="button"
@@ -475,13 +476,13 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                     setLogoInputMode('url');
                     setLogoFile(null);
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${
+                  className={`flex-1 px-3 sm:px-4 py-2 sm:py-2 rounded-lg font-semibold transition-all text-sm sm:text-base ${
                     logoInputMode === 'url'
                       ? `${isDark ? 'bg-indigo-600 text-white' : 'bg-indigo-600 text-white'}`
                       : `${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`
                   }`}
                 >
-                  <i className="fa-solid fa-link mr-2"></i>From URL
+                  <i className="fa-solid fa-link mr-2"></i><span className="hidden sm:inline">From URL</span><span className="sm:hidden">URL</span>
                 </button>
               </div>
 
@@ -493,7 +494,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                       type="file"
                       accept="image/*"
                       onChange={handleLogoChange}
-                      className={`w-full px-4 py-2 rounded-lg border-2 ${
+                      className={`w-full px-3 sm:px-4 py-2 rounded-lg border-2 text-sm sm:text-base ${
                         isDark
                           ? 'bg-gray-700 border-gray-600 text-gray-300'
                           : 'border-gray-300'
@@ -515,7 +516,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                       placeholder="e.g., https://example.com/logo.png"
                       value={logoUrl}
                       onChange={handleLogoUrlChange}
-                      className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-sm sm:text-base ${
                         isDark
                           ? 'bg-gray-700 border-gray-600 text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-900'
                           : 'border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
@@ -530,21 +531,22 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-4 pt-6 border-t border-gray-300 dark:border-gray-600">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-4 sm:pt-6 border-t border-gray-300 dark:border-gray-600">
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all flex items-center justify-center gap-2"
+                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2 sm:py-3 px-2 sm:px-6 rounded-lg transition-all flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-base min-h-10 sm:min-h-12"
               >
                 {saving ? (
                   <>
                     <i className="fa-solid fa-spinner fa-spin"></i>
-                    Saving...
+                    <span className="hidden sm:inline">Saving...</span>
                   </>
                 ) : (
                   <>
                     <i className="fa-solid fa-floppy-disk"></i>
-                    Save Changes
+                    <span className="hidden sm:inline">Save Changes</span>
+                    <span className="sm:hidden">Save</span>
                   </>
                 )}
               </button>
@@ -562,19 +564,20 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                   setLogoPreview(siteSettings.logo_url);
                   setLogoUrl('');
                 }}
-                className={`flex-1 ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-300 hover:bg-gray-400 text-gray-800'} font-bold py-3 px-6 rounded-lg transition-all flex items-center justify-center gap-2`}
+                className={`flex-1 ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-300 hover:bg-gray-400 text-gray-800'} font-bold py-2 sm:py-3 px-2 sm:px-6 rounded-lg transition-all flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-base min-h-10 sm:min-h-12`}
               >
                 <i className="fa-solid fa-rotate-left"></i>
-                Reset
+                <span className="hidden sm:inline">Reset</span>
+                <span className="sm:hidden">Rst</span>
               </button>
             </div>
 
             {/* Preview Section */}
-            <div className={`mt-8 p-6 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-purple-50'} border-2 ${isDark ? 'border-gray-600' : 'border-purple-200'}`}>
-              <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+            <div className={`mt-6 sm:mt-8 p-4 sm:p-6 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-purple-50'} border-2 ${isDark ? 'border-gray-600' : 'border-purple-200'}`}>
+              <h3 className={`text-base sm:text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 <i className="fa-solid fa-eye mr-2"></i>Preview
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   <strong>Website Name:</strong> <span className={isDark ? 'text-white' : 'text-gray-800'}>{formData.website_name}</span>
                 </div>

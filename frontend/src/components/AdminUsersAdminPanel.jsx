@@ -267,35 +267,38 @@ const AdminUsersAdminPanel = ({ token, isDark }) => {
         )}
 
         {/* Tab Buttons */}
-        <div className="flex gap-4 mb-8 flex-wrap">
+        <div className="flex gap-1 sm:gap-4 mb-6 sm:mb-8 flex-wrap">
           <button
             onClick={() => { setActiveForm('register'); setSelectedAdmin(null); }}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+            className={`px-2 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold transition-all flex items-center gap-1 sm:gap-2 text-xs sm:text-base min-h-10 sm:min-h-12 ${
               activeForm === 'register'
                 ? `${isDark ? 'bg-purple-600 text-white' : 'bg-purple-500 text-white'}`
                 : `${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`
             }`}
           >
             <i className="fa-solid fa-user-plus"></i>
-            Register New Admin
+            <span className="hidden sm:inline">Register</span>
+            <span className="sm:hidden">Reg</span>
+            <span className="sm:hidden">Register</span>
           </button>
           <button
             onClick={() => { setActiveForm('manage'); setUpdateForm({ password: '', phone_number: '' }); }}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm sm:text-base ${
               activeForm === 'manage'
                 ? `${isDark ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'}`
                 : `${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`
             }`}
           >
             <i className="fa-solid fa-users"></i>
-            Manage Existing Admin
+            <span className="hidden sm:inline">Manage Existing Admin</span>
+            <span className="sm:hidden">Manage</span>
           </button>
         </div>
 
         {/* Register Form */}
         {activeForm === 'register' && (
-          <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-purple-200'} rounded-xl shadow-lg p-6 sm:p-8 border`}>
-            <h3 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-800'} flex items-center gap-2`}>
+            <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-purple-200'} rounded-xl shadow-lg p-3 sm:p-8 border space-y-4 sm:space-y-6`}>
+            <h3 className={`text-lg sm:text-2xl font-bold mb-4 sm:mb-6 ${isDark ? 'text-white' : 'text-gray-800'} flex items-center gap-2`}>
               <i className="fa-solid fa-user-shield text-green-500"></i>
               Register New Administrator
             </h3>
@@ -303,7 +306,7 @@ const AdminUsersAdminPanel = ({ token, isDark }) => {
             <form onSubmit={handleRegisterSubmit} className="space-y-6">
               {/* Username */}
               <div>
-                <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                <label className={`block text-sm sm:text-lg font-semibold mb-2 sm:mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                   <i className="fa-solid fa-user mr-2 text-blue-500"></i>
                   Username <span className="text-red-500">*</span>
                 </label>
@@ -314,20 +317,20 @@ const AdminUsersAdminPanel = ({ token, isDark }) => {
                   onChange={handleRegisterChange}
                   placeholder="e.g., john_admin"
                   required
-                  className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                  className={`w-full px-2 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-xs sm:text-base min-h-10 sm:min-h-12 ${
                     isDark
                       ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-900'
                       : 'border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
                   } focus:outline-none`}
                 />
-                <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`text-xs sm:text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   Unique username for login
                 </p>
               </div>
 
               {/* Password */}
               <div>
-                <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                <label className={`block text-sm sm:text-lg font-semibold mb-2 sm:mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                   <i className="fa-solid fa-lock mr-2 text-red-500"></i>
                   Password <span className="text-red-500">*</span>
                 </label>
@@ -336,33 +339,33 @@ const AdminUsersAdminPanel = ({ token, isDark }) => {
                   name="password"
                   value={registerForm.password}
                   onChange={handleRegisterChange}
-                  placeholder="Enter secure password (min 6 characters)"
+                  placeholder="Min 6 characters"
                   required
-                  className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                  className={`w-full px-2 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-xs sm:text-base min-h-10 sm:min-h-12 ${
                     isDark
                       ? 'bg-gray-700 border-gray-600 text-white focus:border-red-500 focus:ring-2 focus:ring-red-900'
                       : 'border-gray-300 focus:border-red-500 focus:ring-2 focus:ring-red-200'
                   } focus:outline-none`}
                 />
-                <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`text-xs sm:text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   Minimum 6 characters required
                 </p>
               </div>
 
               {/* Phone Number */}
               <div>
-                <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                <label className={`block text-sm sm:text-lg font-semibold mb-2 sm:mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                   <i className="fa-solid fa-phone mr-2 text-green-500"></i>
-                  Phone Number <span className="text-red-500">*</span>
+                  Phone <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="tel"
                   name="phone_number"
                   value={registerForm.phone_number}
                   onChange={handleRegisterChange}
-                  placeholder="e.g., +91 98765 43210"
+                  placeholder="+91 98765 43210"
                   required
-                  className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                  className={`w-full px-2 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-xs sm:text-base min-h-10 sm:min-h-12 ${
                     isDark
                       ? 'bg-gray-700 border-gray-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-900'
                       : 'border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200'
@@ -372,17 +375,17 @@ const AdminUsersAdminPanel = ({ token, isDark }) => {
 
               {/* Email (Optional) */}
               <div>
-                <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                <label className={`block text-sm sm:text-lg font-semibold mb-2 sm:mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                   <i className="fa-solid fa-envelope mr-2 text-yellow-500"></i>
-                  Email (Optional)
+                  Email
                 </label>
                 <input
                   type="email"
                   name="email"
                   value={registerForm.email}
                   onChange={handleRegisterChange}
-                  placeholder="e.g., john@example.com"
-                  className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                  placeholder="john@example.com"
+                  className={`w-full px-2 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-xs sm:text-base min-h-10 sm:min-h-12 ${
                     isDark
                       ? 'bg-gray-700 border-gray-600 text-white focus:border-yellow-500 focus:ring-2 focus:ring-yellow-900'
                       : 'border-gray-300 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200'
@@ -391,18 +394,18 @@ const AdminUsersAdminPanel = ({ token, isDark }) => {
               </div>
 
               {/* Submit Button */}
-              <div className="flex gap-4 pt-4">
+              <div className="flex gap-2 sm:gap-3 pt-2 sm:pt-4">
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`flex-1 px-6 py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
+                  className={`flex-1 px-2 sm:px-6 py-2 sm:py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-base min-h-10 sm:min-h-12 ${
                     loading
                       ? 'bg-gray-400 cursor-not-allowed'
                       : `${isDark ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'} text-white`
                   }`}
                 >
                   <i className="fa-solid fa-check"></i>
-                  {loading ? 'Registering...' : 'Register Admin'}
+                  {loading ? 'Registering...' : 'Register'}
                 </button>
               </div>
             </form>
@@ -413,8 +416,8 @@ const AdminUsersAdminPanel = ({ token, isDark }) => {
         {activeForm === 'manage' && (
           <div className="space-y-6">
             {/* Admins List */}
-            <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-blue-200'} rounded-xl shadow-lg p-6 sm:p-8 border`}>
-              <h3 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-800'} flex items-center gap-2`}>
+            <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-blue-200'} rounded-xl shadow-lg p-3 sm:p-8 border space-y-4 sm:space-y-6`}>
+              <h3 className={`text-lg sm:text-2xl font-bold mb-4 sm:mb-6 ${isDark ? 'text-white' : 'text-gray-800'} flex items-center gap-2`}>
                 <i className="fa-solid fa-list text-blue-500"></i>
                 List of Administrators
               </h3>
@@ -427,7 +430,7 @@ const AdminUsersAdminPanel = ({ token, isDark }) => {
               ) : admins.length === 0 ? (
                 <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>No admins found</p>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                   {admins.map((admin) => (
                     <div
                       key={admin.id}
@@ -468,26 +471,28 @@ const AdminUsersAdminPanel = ({ token, isDark }) => {
 
             {/* Update Form */}
             {selectedAdmin && (
-              <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-orange-200'} rounded-xl shadow-lg p-6 sm:p-8 border`}>
-                <h3 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-800'} flex items-center gap-2`}>
+              <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-orange-200'} rounded-xl shadow-lg p-3 sm:p-8 border space-y-4 sm:space-y-6`}>
+                <h3 className={`text-lg sm:text-2xl font-bold mb-4 sm:mb-6 ${isDark ? 'text-white' : 'text-gray-800'} flex items-center gap-2 break-words`}>
                   <i className="fa-solid fa-user-edit text-orange-500"></i>
-                  Update Admin: {selectedAdmin.username}
+                  <span className="hidden sm:inline">Update Admin:</span>
+                  <span className="sm:hidden">Edit:</span>
+                  <span className="ml-1 text-sm sm:text-lg">{selectedAdmin.username}</span>
                 </h3>
 
-                <form onSubmit={handleUpdateSubmit} className="space-y-6">
+                <form onSubmit={handleUpdateSubmit} className="space-y-4 sm:space-y-6">
                   {/* New Password */}
                   <div>
-                    <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                    <label className={`block text-sm sm:text-lg font-semibold mb-2 sm:mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                       <i className="fa-solid fa-key mr-2 text-red-500"></i>
-                      New Password (Leave blank to keep current)
+                      New Password
                     </label>
                     <input
                       type="password"
                       name="password"
                       value={updateForm.password}
                       onChange={handleUpdateChange}
-                      placeholder="Enter new password (min 6 characters)"
-                      className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                      placeholder="Min 6 chars"
+                      className={`w-full px-2 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-xs sm:text-base min-h-10 sm:min-h-12 ${
                         isDark
                           ? 'bg-gray-700 border-gray-600 text-white focus:border-red-500 focus:ring-2 focus:ring-red-900'
                           : 'border-gray-300 focus:border-red-500 focus:ring-2 focus:ring-red-200'
@@ -497,17 +502,17 @@ const AdminUsersAdminPanel = ({ token, isDark }) => {
 
                   {/* Phone Number */}
                   <div>
-                    <label className={`block text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                    <label className={`block text-sm sm:text-lg font-semibold mb-2 sm:mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                       <i className="fa-solid fa-phone mr-2 text-green-500"></i>
-                      Phone Number
+                      Phone
                     </label>
                     <input
                       type="tel"
                       name="phone_number"
                       value={updateForm.phone_number}
                       onChange={handleUpdateChange}
-                      placeholder={selectedAdmin.phone_number || 'e.g., +91 98765 43210'}
-                      className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
+                      placeholder="+91 98765 43210"
+                      className={`w-full px-2 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-xs sm:text-base min-h-10 sm:min-h-12 ${
                         isDark
                           ? 'bg-gray-700 border-gray-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-900'
                           : 'border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200'
@@ -516,32 +521,33 @@ const AdminUsersAdminPanel = ({ token, isDark }) => {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex gap-4 pt-4">
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pt-2 sm:pt-4">
                     <button
                       type="submit"
                       disabled={loading}
-                      className={`flex-1 px-6 py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
+                      className={`flex-1 px-2 sm:px-6 py-2 sm:py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-base min-h-10 sm:min-h-12 ${
                         loading
                           ? 'bg-gray-400 cursor-not-allowed'
                           : `${isDark ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white`
                       }`}
                     >
                       <i className="fa-solid fa-save"></i>
-                      {loading ? 'Updating...' : 'Save Changes'}
+                      {loading ? 'Updating...' : 'Save'}
                     </button>
                     {selectedAdmin.username !== 'admin' && (
                       <button
                         type="button"
                         onClick={() => handleDeleteAdmin(selectedAdmin.username)}
                         disabled={loading}
-                        className={`px-6 py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
+                        className={`flex-1 px-2 sm:px-6 py-2 sm:py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-base min-h-10 sm:min-h-12 ${
                           loading
                             ? 'bg-gray-400 cursor-not-allowed'
                             : `${isDark ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'} text-white`
                         }`}
                       >
                         <i className="fa-solid fa-trash"></i>
-                        Deactivate
+                        <span className="hidden sm:inline">Deactivate</span>
+                        <span className="sm:hidden">Del</span>
                       </button>
                     )}
                     <button
@@ -550,7 +556,7 @@ const AdminUsersAdminPanel = ({ token, isDark }) => {
                         setSelectedAdmin(null);
                         setUpdateForm({ password: '', phone_number: '' });
                       }}
-                      className={`px-6 py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
+                      className={`flex-1 px-2 sm:px-6 py-2 sm:py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-base min-h-10 sm:min-h-12 ${
                         isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-300 hover:bg-gray-400 text-gray-800'
                       }`}
                     >
