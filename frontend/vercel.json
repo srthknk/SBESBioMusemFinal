@@ -19,14 +19,7 @@
       ]
     },
 
-    {
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ]
-},
+
 
 {
   "rewrites": [
