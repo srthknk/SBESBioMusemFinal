@@ -7,8 +7,13 @@
   },
 
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/api/:path*", "destination": "https://zoomuseumsbes.onrender.com/api/:path*" },
+    { "source": "/static/:path*", "destination": "/static/:path*" },
+    { "source": "/public/:path*", "destination": "/public/:path*" },
+    { "source": "/:path*", "destination": "/index.html" }
   ],
+
+  "cleanUrls": false,
 
   "headers": [
     {
@@ -47,6 +52,5 @@
     }
   ],
 
-  "cleanUrls": true,
   "trailingSlash": false
 }
