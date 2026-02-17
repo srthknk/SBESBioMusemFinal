@@ -659,21 +659,35 @@ app.add_middleware(
 # Used by UptimeRobot to keep server awake on Render free tier
 # Does NOT call database - responds instantly
 # Must be defined BEFORE api_router for proper routing priority
+# Supports BOTH GET (returns JSON) and HEAD (returns empty 200 OK)
 @app.get("/health")
-async def health_check():
+async def health_check_get():
     """
-    Lightweight health check endpoint for UptimeRobot monitoring.
+    GET /health - Returns status JSON
     
-    Returns 200 OK immediately without touching database.
-    Used to prevent Render free tier from spinning down after 15 min inactivity.
-    
-    Safe for production - no authentication required (monitoring necessity).
+    Returns 200 OK with JSON body immediately without touching database.
+    Used by API clients and monitoring tools.
+    Safe for production - no authentication required.
     """
     return {
         "status": "ok",
         "timestamp": get_ist_now(),
         "service": "biomuseum-backend"
     }
+
+@app.head("/health")
+async def health_check_head():
+    """
+    HEAD /health - Returns 200 OK with empty body
+    
+    Required for UptimeRobot free plan which uses HEAD requests.
+    HEAD is faster than GET (no response body).
+    Returns HTTP 200 immediately without touching database.
+    Safe for production - no authentication required.
+    """
+    # HEAD returns 200 OK with no response body
+    # FastAPI handles this automatically
+    return None
 # ==================== END HEALTH CHECK ====================
 
 api_router = APIRouter(prefix="/api")
