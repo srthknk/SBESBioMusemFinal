@@ -655,6 +655,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ==================== HEALTH CHECK ENDPOINT ====================
+# Used by UptimeRobot to keep server awake on Render free tier
+# Does NOT call database - responds instantly
+# Must be defined BEFORE api_router for proper routing priority
+@app.get("/health")
+async def health_check():
+    """
+    Lightweight health check endpoint for UptimeRobot monitoring.
+    
+    Returns 200 OK immediately without touching database.
+    Used to prevent Render free tier from spinning down after 15 min inactivity.
+    
+    Safe for production - no authentication required (monitoring necessity).
+    """
+    return {
+        "status": "ok",
+        "timestamp": get_ist_now(),
+        "service": "biomuseum-backend"
+    }
+# ==================== END HEALTH CHECK ====================
+
 api_router = APIRouter(prefix="/api")
 
 # Async function to fetch images from web
