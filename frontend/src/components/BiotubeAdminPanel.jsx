@@ -33,7 +33,7 @@ const BiotubeAdminPanel = ({ token, isDark }) => {
   
   // Debug log
   React.useEffect(() => {
-    console.log('🎬 BiotubeAdminPanel - Using BACKEND_URL:', BACKEND_URL);
+    console.log('[INIT] BiotubeAdminPanel - Using BACKEND_URL:', BACKEND_URL);
   }, []);
 
   useEffect(() => {

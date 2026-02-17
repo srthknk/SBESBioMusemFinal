@@ -7,7 +7,7 @@ import os
 import sys
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import List, Optional
 import uuid
 from datetime import datetime, timedelta
@@ -69,10 +69,12 @@ blogs_collection = None
 blog_suggestions_collection = None
 gmail_users_collection = None
 site_settings_collection = None
+admins_collection = None
+admin_sessions_collection = None
 mongodb_connected = False
 
 async def init_mongodb():
-    global db, organisms_collection, suggestions_collection, biotube_videos_collection, video_suggestions_collection, video_comments_collection, blogs_collection, blog_suggestions_collection, gmail_users_collection, site_settings_collection, mongodb_connected
+    global db, organisms_collection, suggestions_collection, biotube_videos_collection, video_suggestions_collection, video_comments_collection, blogs_collection, blog_suggestions_collection, gmail_users_collection, site_settings_collection, admins_collection, admin_sessions_collection, mongodb_connected
     max_retries = 15  # Increased from 10 to 15
     retry_count = 0
     
@@ -122,6 +124,8 @@ async def init_mongodb():
             blog_suggestions_collection = db.blog_suggestions
             gmail_users_collection = db.gmail_users
             site_settings_collection = db.site_settings
+            admins_collection = db.admins
+            admin_sessions_collection = db.admin_sessions
             
             # Test that we can actually query
             test_count = await organisms_collection.count_documents({})
@@ -167,6 +171,15 @@ async def init_mongodb():
             except Exception as e:
                 print(f"[WARN] Failed to migrate site_settings: {str(e)[:100]}")
             # ==================== END MIGRATION ====================
+            
+            # ==================== CREATE INDEXES ====================
+            try:
+                # Create sparse unique index on email (allows multiple null values)
+                await admins_collection.create_index("email", unique=True, sparse=True)
+                print("[OK] ✓ Created sparse unique index on admins.email field")
+            except Exception as e:
+                print(f"[WARN] Failed to create index on email: {str(e)[:100]}")
+            # ==================== END INDEXES ====================
             
             return
             
@@ -253,12 +266,43 @@ class OrganismUpdate(BaseModel):
     description: Optional[str] = None
 
 class AdminLogin(BaseModel):
-    username: str
+    username: Optional[str] = None
+    phone_number: Optional[str] = None
     password: str
+    
+    @validator('username', 'phone_number', pre=True, always=True)
+    def check_credentials(cls, v, values):
+        # At least one of username or phone_number must be provided
+        if not v and not values.get('username') and not values.get('phone_number'):
+            if 'username' in values or 'phone_number' in values:
+                # If we're validating phone_number, check if username is there
+                return v
+        return v
 
 class AdminToken(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+# Admin Management Models
+class AdminRegister(BaseModel):
+    username: str
+    password: str
+    phone_number: str
+    email: Optional[str] = None
+
+class AdminUpdate(BaseModel):
+    password: Optional[str] = None
+    phone_number: Optional[str] = None
+
+class AdminResponse(BaseModel):
+    id: str
+    username: str
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    role: str = "admin"
+    is_active: bool = True
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 # Gmail User Models
 class GmailUserCreate(BaseModel):
@@ -508,18 +552,20 @@ def generate_qr_code(organism_id: str) -> str:
 
 security = HTTPBearer()
 
-def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """
-    Verify admin token from either username/password or Google OAuth login.
-    Accepts tokens from:
-    1. Username/password: admin:adminSBES
-    2. Google OAuth: admin:{authorized_email}
+    Verify admin token from:
+    1. Hardcoded username/password (admin:adminSBES)
+    2. Google OAuth authorized emails
+    3. Active sessions stored in database (for registered admins)
     """
     received_token = credentials.credentials
+    logging.info(f"[VERIFY TOKEN] Attempting to verify: {received_token[:20]}...")
     
-    # Check for username/password token
+    # Check for hardcoded username/password token
     expected_token_admin = hashlib.sha256("admin:adminSBES".encode()).hexdigest()
     if received_token == expected_token_admin:
+        logging.info("[VERIFY TOKEN] ✓ SUCCESS: Hardcoded admin token matched")
         return True
     
     # Check for Google OAuth tokens from authorized emails
@@ -529,9 +575,40 @@ def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends(secur
         for email in authorized_emails:
             expected_token_email = hashlib.sha256(f"admin:{email}".encode()).hexdigest()
             if received_token == expected_token_email:
+                logging.info(f"[VERIFY TOKEN] ✓ SUCCESS: Google OAuth email token matched {email}")
                 return True
     
+    # Check against stored admin sessions in database
+    if admin_sessions_collection is not None:
+        try:
+            logging.info("[VERIFY TOKEN] Checking admin_sessions collection...")
+            current_time = datetime.now(pytz.timezone('Asia/Kolkata')).isoformat()
+            logging.debug(f"[VERIFY TOKEN] Current time: {current_time}")
+            
+            session = await admin_sessions_collection.find_one({
+                "token": received_token,
+                "expires_at": {"$gt": current_time}
+            })
+            
+            if session:
+                logging.info(f"[VERIFY TOKEN] ✓ SUCCESS: Found valid session for user '{session.get('username')}'")
+                return True
+            else:
+                # Check if token exists but is expired
+                expired_session = await admin_sessions_collection.find_one({"token": received_token})
+                if expired_session:
+                    logging.warning(f"[VERIFY TOKEN] ✗ EXPIRED: Token expired at {expired_session.get('expires_at')}, current: {current_time}")
+                else:
+                    logging.warning(f"[VERIFY TOKEN] ✗ NOT FOUND: Token not in admin_sessions collection")
+        except Exception as e:
+            logging.error(f"[VERIFY TOKEN] ✗ ERROR checking sessions: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        logging.error("[VERIFY TOKEN] ✗ CRITICAL: admin_sessions_collection is None!")
+    
     # If no token matches, raise error
+    logging.error(f"[VERIFY TOKEN] ✗ FAILED: Token not verified: {received_token[:20]}...")
     raise HTTPException(status_code=401, detail="Invalid admin token")
 
 def verify_gmail_token(authorization: str = Header(None)):
@@ -564,6 +641,20 @@ def verify_gmail_token(authorization: str = Header(None)):
 
 # Create app and router
 app = FastAPI()
+
+# Configure CORS early - right after app creation
+cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,http://localhost:3001,http://localhost:5173').split(',')
+cors_origins = [origin.strip() for origin in cors_origins if origin.strip()]
+print(f"[CORS] Configured allowed origins: {cors_origins}")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 api_router = APIRouter(prefix="/api")
 
 # Async function to fetch images from web
@@ -1100,10 +1191,258 @@ Guidelines:
 
 @api_router.post("/admin/login", response_model=AdminToken)
 async def admin_login(login: AdminLogin):
-    if login.username == "admin" and login.password == "adminSBES":
-        token = hashlib.sha256("admin:adminSBES".encode()).hexdigest()
-        return AdminToken(access_token=token)
-    raise HTTPException(status_code=401, detail="Invalid credentials")
+    try:
+        # Validate that at least one credential is provided
+        if not login.username and not login.phone_number:
+            raise HTTPException(status_code=400, detail="Username or phone number required")
+        
+        logging.info(f"Admin login attempt - Username: {login.username}, Phone: {login.phone_number}")
+        
+        # Check hardcoded default admin first
+        if login.username == "admin" and login.password == "adminSBES":
+            logging.info("[LOGIN] ✓ Matched hardcoded admin credentials")
+            token = hashlib.sha256("admin:adminSBES".encode()).hexdigest()
+            logging.info(f"[LOGIN] Token generated: {token[:30]}...")
+            
+            # Store the token in admin_sessions for verification
+            try:
+                if admin_sessions_collection is not None:
+                    now = datetime.now(pytz.timezone('Asia/Kolkata'))
+                    expires = now + timedelta(days=30)
+                    insert_result = await admin_sessions_collection.insert_one({
+                        "token": token,
+                        "username": "admin",
+                        "created_at": now.isoformat(),
+                        "expires_at": expires.isoformat()
+                    })
+                    logging.info(f"[LOGIN] ✓ Token stored in admin_sessions. Inserted ID: {insert_result.inserted_id}")
+                else:
+                    logging.error("[LOGIN] ✗ admin_sessions_collection is None!")
+            except Exception as e:
+                logging.error(f"[LOGIN] ✗ Failed to store token: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            logging.info("[LOGIN] ✓ LOGIN SUCCESS for hardcoded admin")
+            return AdminToken(access_token=token)
+        
+        # Check admins collection by username or phone number
+        query = {}
+        if login.username:
+            query["username"] = login.username
+        if login.phone_number:
+            if query:  # If we already have a username, check both
+                admin_user = await admins_collection.find_one({"$or": [{"username": login.username}, {"phone_number": login.phone_number}]})
+            else:
+                admin_user = await admins_collection.find_one({"phone_number": login.phone_number})
+        else:
+            admin_user = await admins_collection.find_one(query)
+        
+        logging.info(f"[LOGIN] Query: {query}")
+        if admin_user:
+            logging.info(f"[LOGIN] ✓ Admin found in database: {admin_user.get('username')}")
+            password_hash = hashlib.sha256(login.password.encode()).hexdigest()
+            stored_hash = admin_user.get("password_hash")
+            
+            if password_hash == stored_hash:
+                logging.info(f"[LOGIN] ✓ Password hash matched for {admin_user.get('username')}")
+            else:
+                logging.warning(f"[LOGIN] ✗ Password hash MISMATCH for {admin_user.get('username')}")
+                logging.debug(f"       Expected: {stored_hash[:20]}...")
+                logging.debug(f"       Got:      {password_hash[:20]}...")
+            
+            is_active = admin_user.get("is_active", True)
+            logging.info(f"[LOGIN] Admin is_active: {is_active}")
+            
+            if admin_user.get("password_hash") == password_hash and admin_user.get("is_active", True):
+                identifier = login.username or login.phone_number
+                token = hashlib.sha256(f"{identifier}:{login.password}".encode()).hexdigest()
+                logging.info(f"[LOGIN] ✓ Generating token for identifier: {identifier}")
+                logging.info(f"[LOGIN] Token generated: {token[:30]}...")
+                
+                # Store the token in admin_sessions for verification
+                try:
+                    if admin_sessions_collection is not None:
+                        now = datetime.now(pytz.timezone('Asia/Kolkata'))
+                        expires = now + timedelta(days=30)
+                        insert_result = await admin_sessions_collection.insert_one({
+                            "token": token,
+                            "username": admin_user.get("username"),
+                            "created_at": now.isoformat(),
+                            "expires_at": expires.isoformat()
+                        })
+                        logging.info(f"[LOGIN] ✓ Token stored in admin_sessions. Inserted ID: {insert_result.inserted_id}")
+                    else:
+                        logging.error("[LOGIN] ✗ admin_sessions_collection is None!")
+                except Exception as e:
+                    logging.error(f"[LOGIN] ✗ Failed to store token: {e}")
+                    import traceback
+                    traceback.print_exc()
+                
+                logging.info(f"[LOGIN] ✓ LOGIN SUCCESS for {admin_user.get('username')}")
+                return AdminToken(access_token=token)
+            else:
+                logging.warning(f"[LOGIN] ✗ Password check or inactive status failed")
+        else:
+            logging.warning(f"[LOGIN] ✗ Admin not found with query: {query}")
+        
+        logging.warning(f"[LOGIN] ✗ Login failed - admin not found or invalid password")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Admin login error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Login failed")
+
+@api_router.post("/admin/register", response_model=AdminResponse)
+async def register_admin(admin_data: AdminRegister, _: bool = Depends(verify_admin_token)):
+    """Register a new admin user. Only existing admins can register new admins."""
+    try:
+        # Check if username already exists
+        existing_admin = await admins_collection.find_one({"username": admin_data.username})
+        if existing_admin:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        
+        # Create new admin
+        admin_id = str(uuid.uuid4())
+        password_hash = hashlib.sha256(admin_data.password.encode()).hexdigest()
+        
+        new_admin = {
+            "id": admin_id,
+            "username": admin_data.username,
+            "password_hash": password_hash,
+            "phone_number": admin_data.phone_number,
+            "email": admin_data.email,  # Keep as None if not provided
+            "role": "admin",
+            "is_active": True,
+            "created_at": get_ist_now(),
+            "updated_at": get_ist_now()
+        }
+        
+        result = await admins_collection.insert_one(new_admin)
+        logging.info(f"New admin registered: {admin_data.username}")
+        
+        return AdminResponse(
+            id=admin_id,
+            username=admin_data.username,
+            phone_number=admin_data.phone_number,
+            email=admin_data.email,
+            role="admin",
+            is_active=True,
+            created_at=new_admin["created_at"],
+            updated_at=new_admin["updated_at"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Admin registration error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/debug/sessions")
+async def debug_sessions():
+    """Debug endpoint - check stored admin sessions (FOR DEBUGGING ONLY)"""
+    try:
+        if not admin_sessions_collection:
+            return {"error": "admin_sessions_collection is None"}
+        
+        sessions = await admin_sessions_collection.find().to_list(100)
+        result = []
+        for session in sessions:
+            session.pop("_id", None)
+            result.append({
+                "username": session.get("username"),
+                "token": session.get("token", "")[:20] + "...",
+                "created_at": session.get("created_at"),
+                "expires_at": session.get("expires_at"),
+                "expired": session.get("expires_at") < datetime.now(pytz.timezone('Asia/Kolkata')) if session.get("expires_at") else "unknown"
+            })
+        
+        return {
+            "total_sessions": len(result),
+            "sessions": result,
+            "current_time": datetime.now(pytz.timezone('Asia/Kolkata')).isoformat()
+        }
+    except Exception as e:
+        logging.error(f"Debug error: {e}")
+        return {"error": str(e)}
+
+@api_router.get("/admin/users")
+async def get_all_admins(_: bool = Depends(verify_admin_token)):
+    """Get all admin users."""
+    try:
+        admins = await admins_collection.find().to_list(1000)
+        result = []
+        for admin in admins:
+            admin.pop("_id", None)
+            admin.pop("password_hash", None)  # Don't return password hash
+            result.append(AdminResponse(**admin))
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching admins: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.put("/admin/users/{username}")
+async def update_admin(username: str, updates: AdminUpdate, _: bool = Depends(verify_admin_token)):
+    """Update admin user (password and phone number)."""
+    try:
+        admin_user = await admins_collection.find_one({"username": username})
+        if not admin_user:
+            raise HTTPException(status_code=404, detail="Admin user not found")
+        
+        update_data = {
+            "updated_at": get_ist_now()
+        }
+        
+        if updates.password:
+            update_data["password_hash"] = hashlib.sha256(updates.password.encode()).hexdigest()
+        
+        if updates.phone_number:
+            update_data["phone_number"] = updates.phone_number
+        
+        await admins_collection.update_one(
+            {"username": username},
+            {"$set": update_data}
+        )
+        
+        logging.info(f"Admin updated: {username}")
+        
+        # Return updated admin
+        updated_admin = await admins_collection.find_one({"username": username})
+        updated_admin.pop("_id", None)
+        updated_admin.pop("password_hash", None)
+        
+        return AdminResponse(**updated_admin)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating admin: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/admin/users/{username}")
+async def delete_admin(username: str, _: bool = Depends(verify_admin_token)):
+    """Soft delete an admin user (set is_active to False)."""
+    try:
+        if username == "admin":
+            raise HTTPException(status_code=400, detail="Cannot delete default admin user")
+        
+        admin_user = await admins_collection.find_one({"username": username})
+        if not admin_user:
+            raise HTTPException(status_code=404, detail="Admin user not found")
+        
+        await admins_collection.update_one(
+            {"username": username},
+            {"$set": {"is_active": False, "updated_at": get_ist_now()}}
+        )
+        
+        logging.info(f"Admin deactivated: {username}")
+        return {"success": True, "message": f"Admin {username} deactivated"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error deleting admin: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/admin/verify-email")
 async def verify_admin_email(request: dict):
@@ -1180,6 +1519,22 @@ async def google_login(request: dict):
             
             # Generate admin token for this email
             token = hashlib.sha256(f"admin:{email}".encode()).hexdigest()
+            
+            # Store the token in admin_sessions for verification
+            try:
+                if admin_sessions_collection is not None:
+                    now = datetime.now(pytz.timezone('Asia/Kolkata'))
+                    expires = now + timedelta(days=30)
+                    insert_result = await admin_sessions_collection.insert_one({
+                        "token": token,
+                        "username": email,  # Use email as username for Google OAuth
+                        "created_at": now.isoformat(),
+                        "expires_at": expires.isoformat(),
+                        "auth_type": "google_oauth"
+                    })
+                    logging.info(f"[GOOGLE LOGIN] ✓ Token stored in admin_sessions. Inserted ID: {insert_result.inserted_id}")
+            except Exception as e:
+                logging.warning(f"[GOOGLE LOGIN] Failed to store token in admin_sessions: {e}")
             
             return {
                 "success": True,
@@ -2869,20 +3224,6 @@ async def update_site_settings(settings: SiteSettingsUpdate, _: bool = Depends(v
 
 
 app.include_router(api_router)
-
-# Parse CORS origins from environment variable
-cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,http://localhost:3001').split(',')
-cors_origins = [origin.strip() for origin in cors_origins]  # Remove whitespace
-
-print(f"[INFO] CORS Origins configured: {cors_origins}")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 logging.basicConfig(
     level=logging.INFO,

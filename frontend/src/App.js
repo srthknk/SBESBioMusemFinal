@@ -14,6 +14,7 @@ import BlogDetailPage from './components/BlogDetailPage';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import BlogAdminPanel from './components/BlogAdminPanel';
 import PersonalizationAdminPanel from './components/PersonalizationAdminPanel';
+import AdminUsersAdminPanel from './components/AdminUsersAdminPanel';
 import BioMuseumAIChatbot from './components/BioMuseumAIChatbot';
 import { AuthProvider } from './context/AuthContext';
 import { SiteProvider, SiteContext } from './contexts/SiteContext';
@@ -239,12 +240,17 @@ const Homepage = () => {
 
   const handleAdminLogin = async (e) => {
     e.preventDefault();
-    const username = e.target.username.value;
+    const credential = e.target.credential.value; // Can be username or phone number
     const password = e.target.password.value;
 
     setLoginLoading(true);
     try {
-      const response = await axios.post(`${API}/admin/login`, { username, password });
+      // Determine if it's a phone number or username
+      const loginData = credential.includes('+') || /^\d{10,}$/.test(credential.replace(/\s|-/g, ''))
+        ? { phone_number: credential, password }
+        : { username: credential, password };
+      
+      const response = await axios.post(`${API}/admin/login`, loginData);
       login(response.data.access_token);
       setShowAdminLogin(false);
       showToast('Welcome Admin! Login successful', 'success', 2500);
@@ -609,15 +615,18 @@ const Homepage = () => {
             <form onSubmit={handleAdminLogin}>
               <div className="mb-4 sm:mb-5">
                 <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  <i className="fa-solid fa-user mr-2 text-green-600"></i>Username
+                  <i className="fa-solid fa-user mr-2 text-green-600"></i>Username or Phone Number
                 </label>
                 <input
                   type="text"
-                  name="username"
+                  name="credential"
                   className={`w-full px-4 py-2.5 border-2 rounded-lg focus:outline-none transition-all text-sm sm:text-base ${isDark ? 'bg-gray-700 border-gray-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-900' : 'border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200'}`}
-                  placeholder="Enter username"
+                  placeholder="Enter username or phone number"
                   required
                 />
+                <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <i className="fa-solid fa-info-circle mr-1"></i>Use username or phone number registered with admin account
+                </p>
               </div>
               <div className="mb-6 sm:mb-8">
                 <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1157,6 +1166,18 @@ const AdminPanel = () => {
             >
               <i className="fa-solid fa-wand-magic-sparkles text-xs"></i> Settings
             </button>
+            <button
+              onClick={() => setActiveView('admin-users')}
+              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'admin-users' 
+                ? `border-b-2 text-white` 
+                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
+              style={activeView === 'admin-users' ? {
+                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
+                color: siteSettings?.primary_color || '#7c3aed'
+              } : {}}
+            >
+              <i className="fa-solid fa-users-gear text-xs"></i> Admin Users
+            </button>
           </div>
 
           {/* Mobile Menu */}
@@ -1209,6 +1230,12 @@ const AdminPanel = () => {
                 className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'personalization' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
               >
                 <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>Personalization
+              </button>
+              <button
+                onClick={() => { setActiveView('admin-users'); setMobileMenuOpen(false); }}
+                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'admin-users' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
+              >
+                <i className="fa-solid fa-users-gear mr-2"></i>Admin Users
               </button>
               <button
                 onClick={() => { navigate('/'); setMobileMenuOpen(false); }}
@@ -1274,6 +1301,12 @@ const AdminPanel = () => {
         )}
         {activeView === 'personalization' && (
           <PersonalizationAdminPanel
+            token={token}
+            isDark={isDark}
+          />
+        )}
+        {activeView === 'admin-users' && (
+          <AdminUsersAdminPanel
             token={token}
             isDark={isDark}
           />
@@ -1644,9 +1677,10 @@ const SuggestedOrganismsTab = ({ token, isDark, onApprovalSuccess }) => {
               
               <button
                 onClick={() => handleDelete(suggestion.id)}
-                className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm transition-all"
+                className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm transition-all flex items-center justify-center gap-1"
               >
-                🗑️ Delete
+                <i className="fa-solid fa-trash"></i>
+                <span className="hidden sm:inline">Delete</span>
               </button>
             </div>
           </div>
@@ -1658,7 +1692,10 @@ const SuggestedOrganismsTab = ({ token, isDark, onApprovalSuccess }) => {
 const DashboardView = ({ organisms, isDark }) => {
   return (
     <div>
-      <h2 className={`text-2xl sm:text-3xl font-semibold mb-6 ${isDark ? 'text-white' : 'text-gray-800'}`}>📊 Dashboard</h2>
+      <h2 className={`text-2xl sm:text-3xl font-semibold mb-6 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+        <i className="fa-solid fa-chart-simple mr-2"></i>
+        Dashboard
+      </h2>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
         <div className={`p-6 rounded-lg transition-all ${isDark ? 'bg-green-900 border border-green-700' : 'bg-green-100'} hover:shadow-lg`}>
@@ -1980,7 +2017,7 @@ const AddOrganismForm = ({ token, isDark, onSuccess, initialData }) => {
           {initialData && (
             <div className={`mt-2 p-2 sm:p-3 rounded-lg inline-block ${isDark ? 'bg-green-900 border-2 border-green-600' : 'bg-green-100 border-2 border-green-500'}`}>
               <p className={`text-xs sm:text-sm font-semibold ${isDark ? 'text-green-200' : 'text-green-800'}`}>
-                ✅ Auto-filled from Approved Suggestion
+                  ✅ Auto-filled from Approved Suggestion
               </p>
             </div>
           )}
@@ -2291,7 +2328,7 @@ const AddOrganismForm = ({ token, isDark, onSuccess, initialData }) => {
                 : 'bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl'
             }`}
           >
-            {loading ? 'Adding Organism...' : '✅ Add Organism'}
+            {loading ? 'Adding Organism...' : <><i className="fa-solid fa-check mr-1"></i>Add Organism</>}
           </button>
         </div>
       </form>
@@ -2557,11 +2594,11 @@ const SuggestionModal = ({ isDark, onClose, token }) => {
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <span>⏳</span> Submitting...
+                    <i className="fa-solid fa-spinner fa-spin"></i> Submitting...
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    <span>📤</span> Submit Suggestion
+                    <i className="fa-solid fa-paper-plane"></i> Submit Suggestion
                   </span>
                 )}
               </button>
@@ -2899,11 +2936,17 @@ const UsersHistoryTab = ({ token, isDark }) => {
       
       {loading ? (
         <div className={`text-center py-8 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          <p className="text-lg">⏳ Loading suggestions...</p>
+          <p className="text-lg flex items-center justify-center gap-2">
+            <i className="fa-solid fa-hourglass-end"></i>
+            Loading suggestions...
+          </p>
         </div>
       ) : suggestions.length === 0 ? (
         <div className={`text-center py-12 rounded-lg ${isDark ? 'bg-gray-800 border border-gray-700' : 'bg-gray-50 border border-gray-200'}`}>
-          <p className={`text-lg font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>📭 No suggestions yet</p>
+          <p className={`text-lg font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+            <i className="fa-solid fa-inbox text-gray-400 mr-2"></i>
+            No suggestions yet
+          </p>
           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Suggestions from users will appear here automatically when submitted.</p>
         </div>
       ) : (
@@ -2968,26 +3011,38 @@ const UsersHistoryTab = ({ token, isDark }) => {
       {/* Statistics Section */}
       {suggestions.length > 0 && (
         <div className="mt-8">
-          <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>📊 Summary</h3>
+          <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            <i className="fa-solid fa-chart-pie mr-2"></i>
+            Summary
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className={`rounded-lg p-6 ${isDark ? 'bg-gray-800' : 'bg-blue-50'}`}>
               <p className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>📝 Total</p>
               <p className={`text-3xl font-bold mt-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{suggestions.length}</p>
             </div>
             <div className={`rounded-lg p-6 ${isDark ? 'bg-gray-800' : 'bg-green-50'}`}>
-              <p className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>✅ Approved</p>
+              <p className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                <i className="fa-solid fa-circle-check text-green-500 mr-1"></i>
+                Approved
+              </p>
               <p className={`text-3xl font-bold mt-2 ${isDark ? 'text-green-400' : 'text-green-600'}`}>
                 {suggestions.filter(s => s.status === 'approved').length}
               </p>
             </div>
             <div className={`rounded-lg p-6 ${isDark ? 'bg-gray-800' : 'bg-yellow-50'}`}>
-              <p className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>⏳ Pending</p>
+              <p className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                <i className="fa-solid fa-clock text-yellow-500 mr-1"></i>
+                Pending
+              </p>
               <p className={`text-3xl font-bold mt-2 ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>
                 {suggestions.filter(s => s.status === 'pending').length}
               </p>
             </div>
             <div className={`rounded-lg p-6 ${isDark ? 'bg-gray-800' : 'bg-red-50'}`}>
-              <p className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>❌ Rejected</p>
+              <p className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                <i className="fa-solid fa-circle-xmark text-red-500 mr-1"></i>
+                Rejected
+              </p>
               <p className={`text-3xl font-bold mt-2 ${isDark ? 'text-red-400' : 'text-red-600'}`}>
                 {suggestions.filter(s => s.status === 'rejected').length}
               </p>
@@ -3075,21 +3130,21 @@ const ManageOrganisms = ({ organisms, token, isDark, onUpdate }) => {
                   onClick={() => setEditingOrganism(organism)}
                   className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-2.5 sm:px-4 py-2.5 sm:py-2 rounded-lg font-medium text-xs sm:text-sm transition-all min-h-[44px] sm:min-h-auto flex items-center justify-center"
                 >
-                  <span className="text-lg sm:text-base">✏️</span>
+                  <i className="fa-solid fa-pen"></i>
                   <span className="hidden sm:inline ml-1">Edit</span>
                 </button>
                 <button
                   onClick={() => setPrintOrganism(organism)}
                   className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-2.5 sm:px-4 py-2.5 sm:py-2 rounded-lg font-medium text-xs sm:text-sm transition-all min-h-[44px] sm:min-h-auto flex items-center justify-center"
                 >
-                  <span className="text-lg sm:text-base">🖨️</span>
+                  <i className="fa-solid fa-print"></i>
                   <span className="hidden sm:inline ml-1">Print</span>
                 </button>
                 <button
                   onClick={() => handleDelete(organism.id, organism.name)}
                   className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-2.5 sm:px-4 py-2.5 sm:py-2 rounded-lg font-medium text-xs sm:text-sm transition-all min-h-[44px] sm:min-h-auto flex items-center justify-center"
                 >
-                  <span className="text-lg sm:text-base">🗑️</span>
+                  <i className="fa-solid fa-trash"></i>
                   <span className="hidden sm:inline ml-1">Delete</span>
                 </button>
               </div>
@@ -3367,7 +3422,7 @@ const EditOrganismForm = ({ organism, token, onSuccess, onCancel }) => {
                 : 'bg-blue-600 hover:bg-blue-700'
             } transition-colors`}
           >
-            {loading ? 'Updating...' : '✅ Update Organism'}
+            {loading ? 'Updating...' : <><i className="fa-solid fa-check mr-1"></i>Update Organism</>}
           </button>
         </div>
       </form>
@@ -3440,7 +3495,9 @@ const OrganismsPage = () => {
     return (
       <div className={`flex items-center justify-center min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
         <div className="text-center px-4">
-          <div className="text-6xl mb-6 animate-bounce">⏳</div>
+          <div className="text-6xl mb-6 animate-bounce">
+            <i className="fa-solid fa-spinner fa-spin text-blue-500"></i>
+          </div>
           <div className="text-lg sm:text-2xl font-bold text-gray-800">Loading organisms...</div>
         </div>
       </div>

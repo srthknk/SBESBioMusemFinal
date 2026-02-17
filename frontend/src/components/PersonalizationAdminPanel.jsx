@@ -108,7 +108,7 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
         updatePayload.logo_url = logoUrl;
       }
 
-      console.log('💾 Saving settings:', updatePayload);
+      console.log('[SAVING] Saving settings:', updatePayload);
       await updateSiteSettings(updatePayload, token);
       
       // Refresh settings after save
