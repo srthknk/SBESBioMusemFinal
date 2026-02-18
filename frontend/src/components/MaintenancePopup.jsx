@@ -5,16 +5,10 @@ const MaintenancePopup = ({ clientId = 'biomuseum-main', backendUrl = 'https://s
   const [status, setStatus] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [dismissed, setDismissed] = useState(false);
+  const [lastFetchedStatus, setLastFetchedStatus] = useState(null);
 
   useEffect(() => {
-    // Check localStorage for dismissed state
-    const dismissedKey = `maintenance-popup-dismissed-${clientId}`;
-    const isDismissed = localStorage.getItem(dismissedKey);
-    if (isDismissed && Date.now() - JSON.parse(isDismissed) < 3600000) { // 1 hour
-      setDismissed(true);
-    }
-
+    // Fetch immediately on mount
     checkMaintenanceStatus();
     
     // Check every 30 seconds
@@ -37,14 +31,16 @@ const MaintenancePopup = ({ clientId = 'biomuseum-main', backendUrl = 'https://s
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Maintenance status fetched:', data);
 
         if (data.success) {
           // Backend returns status at top level, not nested
           setStatus(data);
+          setLastFetchedStatus(data.status);
           
-          // Show popup if:
-          // - status is not 'active' (i.e., 'due', 'suspended', 'unpaid', 'pending', etc)
-          const shouldShow = data.status && data.status !== 'active' && !dismissed;
+          // Show popup if status is not 'active'
+          const shouldShow = data.status && data.status !== 'active';
+          console.log('Status:', data.status, 'Should show popup:', shouldShow);
           
           if (shouldShow) {
             setIsVisible(true);
@@ -70,12 +66,13 @@ const MaintenancePopup = ({ clientId = 'biomuseum-main', backendUrl = 'https://s
       return; // Do nothing - cannot close when suspended
     }
     setIsVisible(false);
-    // Store dismissal for 1 hour
+    // Store dismissal for 1 hour in localStorage
     const dismissedKey = `maintenance-popup-dismissed-${clientId}`;
     localStorage.setItem(dismissedKey, JSON.stringify(Date.now()));
   };
 
-  if (!isVisible || loading || !status) return null;
+  // Don't render if no status data yet
+  if (!status) return null;
 
   const statusType = status?.status || 'active';
   const paymentStatus = status?.payment_status || status?.status || 'paid';
