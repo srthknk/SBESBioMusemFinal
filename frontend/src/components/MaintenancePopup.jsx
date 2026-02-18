@@ -43,8 +43,8 @@ const MaintenancePopup = ({ clientId = 'biomuseum-main', backendUrl = 'https://s
           setStatus(data);
           
           // Show popup if:
-          // - status is not 'active' (i.e., 'due' or 'suspended')
-          const shouldShow = data.status !== 'active' && !dismissed;
+          // - status is not 'active' (i.e., 'due', 'suspended', 'unpaid', 'pending', etc)
+          const shouldShow = data.status && data.status !== 'active' && !dismissed;
           
           if (shouldShow) {
             setIsVisible(true);
@@ -65,7 +65,7 @@ const MaintenancePopup = ({ clientId = 'biomuseum-main', backendUrl = 'https://s
   };
 
   const closePopup = () => {
-    // Only allow closing if NOT suspended
+    // Only allow closing if NOT suspended (locked statuses cannot be closed)
     if (status?.status === 'suspended') {
       return; // Do nothing - cannot close when suspended
     }
@@ -78,22 +78,25 @@ const MaintenancePopup = ({ clientId = 'biomuseum-main', backendUrl = 'https://s
   if (!isVisible || loading || !status) return null;
 
   const statusType = status?.status || 'active';
-  const paymentStatus = status?.payment_status || 'paid';
+  const paymentStatus = status?.payment_status || status?.status || 'paid';
   
-  // Determine severity level
+  // Determine severity level - handle all status types
   const isSuspended = statusType === 'suspended';
-  const isDue = statusType === 'due' || paymentStatus === 'unpaid';
-  const isPending = paymentStatus === 'pending';
+  const isUnpaid = statusType === 'unpaid' || paymentStatus === 'unpaid';
+  const isDue = statusType === 'due' || paymentStatus === 'due';
+  const isPending = statusType === 'pending' || paymentStatus === 'pending';
 
   const getTitle = () => {
     if (isSuspended) return 'Account Suspended';
-    if (isDue) return 'Payment Required';
+    if (isUnpaid) return 'Payment Required';
+    if (isDue) return 'Payment Due';
     if (isPending) return 'Payment Pending';
     return 'Important Notice';
   };
 
   const getIcon = () => {
     if (isSuspended) return '🔒';
+    if (isUnpaid) return '⚠️';
     if (isDue) return '⚠️';
     if (isPending) return '⏳';
     return 'ℹ️';
@@ -101,6 +104,7 @@ const MaintenancePopup = ({ clientId = 'biomuseum-main', backendUrl = 'https://s
 
   const getSeverityClass = () => {
     if (isSuspended) return 'severity-critical';
+    if (isUnpaid) return 'severity-warning';
     if (isDue) return 'severity-warning';
     if (isPending) return 'severity-info';
     return 'severity-normal';
