@@ -28,7 +28,7 @@ const MaintenancePopup = ({ clientId = 'biomuseum-main', backendUrl = 'https://s
       setLoading(true);
       
       // Call the backend API endpoint
-      const response = await fetch(`${backendUrl}/api/maintenance/status/${clientId}`, {
+      const response = await fetch(`${backendUrl}/api/super-admin/maintenance/status/${clientId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
