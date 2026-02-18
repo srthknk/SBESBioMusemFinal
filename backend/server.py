@@ -71,10 +71,11 @@ gmail_users_collection = None
 site_settings_collection = None
 admins_collection = None
 admin_sessions_collection = None
+maintenance_controls = None
 mongodb_connected = False
 
 async def init_mongodb():
-    global db, organisms_collection, suggestions_collection, biotube_videos_collection, video_suggestions_collection, video_comments_collection, blogs_collection, blog_suggestions_collection, gmail_users_collection, site_settings_collection, admins_collection, admin_sessions_collection, mongodb_connected
+    global db, organisms_collection, suggestions_collection, biotube_videos_collection, video_suggestions_collection, video_comments_collection, blogs_collection, blog_suggestions_collection, gmail_users_collection, site_settings_collection, admins_collection, admin_sessions_collection, maintenance_controls, mongodb_connected
     max_retries = 15  # Increased from 10 to 15
     retry_count = 0
     
@@ -126,6 +127,7 @@ async def init_mongodb():
             site_settings_collection = db.site_settings
             admins_collection = db.admins
             admin_sessions_collection = db.admin_sessions
+            maintenance_controls = db.maintenance_controls
             
             # Test that we can actually query
             test_count = await organisms_collection.count_documents({})
@@ -511,6 +513,17 @@ class SiteSettingsUpdate(BaseModel):
     secondary_color: Optional[str] = None
     font_url: Optional[str] = None
     font_family: Optional[str] = None
+
+class ClientStatus(BaseModel):
+    """Model for client maintenance status"""
+    client_id: str
+    status: str = "active"  # active | due | suspended
+    message: str = ""
+    notes: str = ""
+    last_paid_date: Optional[str] = None
+    next_billing_date: Optional[str] = None
+    created_at: str = Field(default_factory=get_ist_now)
+    updated_at: str = Field(default_factory=get_ist_now)
 
 # Database functions - MongoDB only (no JSON fallback)
 async def get_organisms_list():
@@ -3255,6 +3268,138 @@ async def update_site_settings(settings: SiteSettingsUpdate, _: bool = Depends(v
         return updated_settings
     except Exception as e:
         logging.error(f"Error updating site settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== MAINTENANCE STATUS ENDPOINTS ====================
+
+# Get maintenance status for a client (public endpoint)
+@api_router.get("/maintenance/status/{client_id}")
+async def get_maintenance_status(client_id: str):
+    """
+    Fetch maintenance status for a specific client.
+    Client can call this periodically to check if they need to show a maintenance popup.
+    
+    Returns:
+    - status: "active" | "due" | "suspended"
+    - message: Custom message to display in popup
+    - last_paid_date: When payment was received
+    - next_billing_date: When next payment is due
+    """
+    try:
+        if not client_id or not client_id.strip():
+            raise HTTPException(status_code=400, detail="Client ID is required")
+        
+        client = await maintenance_controls.find_one({"client_id": client_id})
+        
+        if not client:
+            # Return default active status if client not found
+            return {
+                "success": True,
+                "status": "active",
+                "message": "",
+                "last_paid_date": None,
+                "next_billing_date": None,
+                "client_id": client_id
+            }
+        
+        client.pop("_id", None)
+        return {
+            "success": True,
+            "status": client.get("status", "active"),
+            "message": client.get("message", "") or client.get("notes", ""),
+            "last_paid_date": client.get("last_paid_date"),
+            "next_billing_date": client.get("next_billing_date"),
+            "client_id": client_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching maintenance status for {client_id}: {e}")
+        return {
+            "success": True,
+            "status": "active",
+            "message": "",
+            "client_id": client_id
+        }
+
+# Create or update client status (admin only)
+@api_router.post("/admin/clients")
+async def create_client(client: ClientStatus, _: bool = Depends(verify_admin_token)):
+    """Admin endpoint to create or update a client's status"""
+    try:
+        client_data = client.dict()
+        client_data["updated_at"] = get_ist_now()
+        
+        result = await maintenance_controls.update_one(
+            {"client_id": client.client_id},
+            {"$set": client_data},
+            upsert=True
+        )
+        
+        return {
+            "success": True,
+            "message": "Client status updated successfully",
+            "client_id": client.client_id
+        }
+    except Exception as e:
+        logging.error(f"Error updating client status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get all clients (admin only)
+@api_router.get("/admin/clients")
+async def get_all_clients(_: bool = Depends(verify_admin_token)):
+    """Admin endpoint to view all clients"""
+    try:
+        clients = await maintenance_controls.find().to_list(1000)
+        for client in clients:
+            client.pop("_id", None)
+        
+        return {
+            "success": True,
+            "count": len(clients),
+            "clients": clients
+        }
+    except Exception as e:
+        logging.error(f"Error fetching clients: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update client status (admin only)
+@api_router.put("/admin/clients/{client_id}")
+async def update_client_status(client_id: str, client: ClientStatus, _: bool = Depends(verify_admin_token)):
+    """Admin endpoint to update a specific client's status"""
+    try:
+        client_data = client.dict()
+        client_data["updated_at"] = get_ist_now()
+        
+        result = await maintenance_controls.update_one(
+            {"client_id": client_id},
+            {"$set": client_data},
+            upsert=True
+        )
+        
+        return {
+            "success": True,
+            "message": f"Client {client_id} updated successfully"
+        }
+    except Exception as e:
+        logging.error(f"Error updating client {client_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Delete client (admin only)
+@api_router.delete("/admin/clients/{client_id}")
+async def delete_client(client_id: str, _: bool = Depends(verify_admin_token)):
+    """Admin endpoint to delete a client"""
+    try:
+        result = await maintenance_controls.delete_one({"client_id": client_id})
+        
+        return {
+            "success": True,
+            "message": f"Client {client_id} deleted successfully",
+            "deleted_count": result.deleted_count
+        }
+    except Exception as e:
+        logging.error(f"Error deleting client {client_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

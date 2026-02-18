@@ -16,6 +16,7 @@ import BlogAdminPanel from './components/BlogAdminPanel';
 import PersonalizationAdminPanel from './components/PersonalizationAdminPanel';
 import AdminUsersAdminPanel from './components/AdminUsersAdminPanel';
 import BioMuseumAIChatbot from './components/BioMuseumAIChatbot';
+import MaintenancePopup from './components/MaintenancePopup';
 import { AuthProvider } from './context/AuthContext';
 import { SiteProvider, SiteContext } from './contexts/SiteContext';
 import { formatDateIST } from './utils/dateFormatter';
@@ -3722,6 +3723,7 @@ function App() {
               <HelmetProvider>
                 <div className="App">
                   <BrowserRouter>
+                    <MaintenancePopup clientId="biomuseum-main" backendUrl="http://localhost:8000" />
                     <Routes>
                       <Route path="/" element={<Homepage />} />
                       <Route path="/organisms" element={<OrganismsPage />} />
