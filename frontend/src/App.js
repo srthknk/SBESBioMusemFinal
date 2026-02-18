@@ -3723,7 +3723,7 @@ function App() {
               <HelmetProvider>
                 <div className="App">
                   <BrowserRouter>
-                    <MaintenancePopup clientId="biomuseum-main" backendUrl="http://localhost:8000" />
+                    <MaintenancePopup clientId="biomuseum-main" backendUrl="https://servermaintenancecontrolsbes.onrender.com" />
                     <Routes>
                       <Route path="/" element={<Homepage />} />
                       <Route path="/organisms" element={<OrganismsPage />} />

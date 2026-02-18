@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './MaintenancePopup.css';
 
-const MaintenancePopup = ({ clientId = 'biomuseum-main', backendUrl = 'http://localhost:5001' }) => {
+const MaintenancePopup = ({ clientId = 'biomuseum-main', backendUrl = 'https://servermaintenancecontrolsbes.onrender.com' }) => {
   const [status, setStatus] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
   const [loading, setLoading] = useState(true);
