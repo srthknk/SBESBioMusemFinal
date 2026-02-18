@@ -813,6 +813,57 @@ async def root_health():
 async def root():
     return {"message": "Biology Museum API"}
 
+# ==================== MAINTENANCE STATUS ENDPOINT ====================
+@api_router.get("/maintenance/status/{client_id}")
+async def get_maintenance_status(client_id: str):
+    """
+    GET /api/maintenance/status/{client_id}
+    
+    Fetch maintenance status for a given client.
+    This is used by the frontend maintenance popup.
+    
+    For now, returns default 'active' status.
+    Can be extended to fetch from a database collection.
+    """
+    try:
+        # Query maintenance_controls collection if it exists
+        if maintenance_controls:
+            client_status = await maintenance_controls.find_one({"client_id": client_id})
+            if client_status:
+                return {
+                    "success": True,
+                    "status": client_status.get("status", "active"),
+                    "message": client_status.get("message", ""),
+                    "clientName": client_status.get("clientName", ""),
+                    "last_paid_date": client_status.get("last_paid_date"),
+                    "next_billing_date": client_status.get("next_billing_date"),
+                    "payment_status": client_status.get("payment_status", "paid")
+                }
+        
+        # Default response if no maintenance controls collection or client not found
+        return {
+            "success": True,
+            "status": "active",
+            "message": "",
+            "clientName": "",
+            "last_paid_date": None,
+            "next_billing_date": None,
+            "payment_status": "paid"
+        }
+    except Exception as e:
+        logging.error(f"Error fetching maintenance status for {client_id}: {e}")
+        # Fail gracefully - return active status on error
+        return {
+            "success": True,
+            "status": "active",
+            "message": "",
+            "clientName": "",
+            "last_paid_date": None,
+            "next_billing_date": None,
+            "payment_status": "paid"
+        }
+# ==================== END MAINTENANCE STATUS ENDPOINT ====================
+
 @api_router.get("/organisms", response_model=List[Organism])
 async def get_organisms():
     try:

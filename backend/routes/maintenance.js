@@ -7,8 +7,11 @@ const ADMIN_API = process.env.ADMIN_PANEL_URL || 'http://localhost:5001/api/supe
 const CLIENT_ID = process.env.CLIENT_ID || 'biomuseum-main';
 
 /**
- * GET /status
+ * GET /status/:clientId
  * Fetch maintenance status from admin panel
+ * 
+ * Params:
+ * - clientId: The client identifier (e.g., 'biomuseum-main')
  * 
  * Returns:
  * {
@@ -20,11 +23,14 @@ const CLIENT_ID = process.env.CLIENT_ID || 'biomuseum-main';
  *   nextBillingDate: string | null
  * }
  */
-router.get('/status', async (req, res) => {
+router.get('/status/:clientId', async (req, res) => {
   try {
+    // Get clientId from URL params, fallback to env variable
+    const clientId = req.params.clientId || CLIENT_ID;
+
     // Fetch client data from admin panel
     const response = await axios.get(
-      `${ADMIN_API}/clients/${CLIENT_ID}`,
+      `${ADMIN_API}/clients/${clientId}`,
       {
         timeout: 10000, // 10 second timeout
         headers: {
