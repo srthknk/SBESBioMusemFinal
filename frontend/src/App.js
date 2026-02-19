@@ -15,6 +15,7 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import BlogAdminPanel from './components/BlogAdminPanel';
 import PersonalizationAdminPanel from './components/PersonalizationAdminPanel';
 import AdminUsersAdminPanel from './components/AdminUsersAdminPanel';
+import MaintenanceAdminPanel from './components/MaintenanceAdminPanel';
 import BioMuseumAIChatbot from './components/BioMuseumAIChatbot';
 import MaintenancePopup from './components/MaintenancePopup';
 import { AuthProvider } from './context/AuthContext';
@@ -3711,6 +3712,12 @@ const PrivacyPolicyWrapper = () => {
   return <PrivacyPolicy isDark={isDark} />;
 };
 
+// Maintenance Admin Panel Wrapper Component to access theme context
+const MaintenanceAdminPanelWrapper = () => {
+  const { isDark } = React.useContext(ThemeContext);
+  return <MaintenanceAdminPanel isDark={isDark} />;
+};
+
 function App() {
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 
@@ -3723,13 +3730,14 @@ function App() {
               <HelmetProvider>
                 <div className="App">
                   <BrowserRouter>
-                    <MaintenancePopup clientId="biomuseum-main" backendUrl="https://servermaintenancecontrolsbes.onrender.com" />
+                    <MaintenancePopup />
                     <Routes>
                       <Route path="/" element={<Homepage />} />
                       <Route path="/organisms" element={<OrganismsPage />} />
                       <Route path="/scanner" element={<QRScanner />} />
                       <Route path="/organism/:id" element={<OrganismDetail />} />
                       <Route path="/admin" element={<AdminPanel />} />
+                      <Route path="/maintenance" element={<MaintenanceAdminPanelWrapper />} />
                       <Route path="/biotube" element={<BiotubeWrapper />} />
                       <Route path="/biotube/watch/:videoId" element={<BiotubeVideoWrapper />} />
                       <Route path="/about" element={<AboutUsWrapper />} />

@@ -53,7 +53,7 @@ const PrivacyPolicy = ({ isDark }) => {
               Privacy Policy
             </h2>
             <p className={`text-sm sm:text-base ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Last Updated: February 16, 2026
+              Last Updated: February 19, 2026
             </p>
           </section>
 
@@ -86,7 +86,6 @@ const PrivacyPolicy = ({ isDark }) => {
                   Personal Data You Provide
                 </h4>
                 <ul className="list-disc list-inside space-y-2 ml-2">
-                  <li>Name and email address (when logging in via Google or creating an account)</li>
                   <li>Information submitted through forms (suggestions, contact forms)</li>
                   <li>Blog comments and community contributions</li>
                   <li>User preferences and settings</li>
@@ -100,8 +99,7 @@ const PrivacyPolicy = ({ isDark }) => {
                   <li>Device information (browser type, IP address, device type)</li>
                   <li>Usage data (pages visited, time spent, clicks)</li>
                   <li>Cookies and similar tracking technologies</li>
-                  <li>Location data (general, based on IP)</li>
-                </ul>
+                   </ul>
               </div>
             </div>
           </section>
@@ -126,17 +124,45 @@ const PrivacyPolicy = ({ isDark }) => {
             </ul>
           </section>
 
+          {/* Non-Commercial Statement */}
+          <section className="mb-8 sm:mb-10">
+            <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
+              isDark ? 'text-blue-400' : 'text-blue-600'
+            }`}>
+              3. Non-Commercial Statement
+            </h3>
+            <p className={`text-sm sm:text-base leading-relaxed ${
+              isDark ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              This website is developed for educational and institutional purposes and is not intended as a commercial service.
+            </p>
+          </section>
+
+          {/* Jurisdiction */}
+          <section className="mb-8 sm:mb-10">
+            <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
+              isDark ? 'text-blue-400' : 'text-blue-600'
+            }`}>
+              4. Jurisdiction
+            </h3>
+            <p className={`text-sm sm:text-base leading-relaxed ${
+              isDark ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              Governed by laws of India.
+            </p>
+          </section>
+
           {/* Google OAuth */}
           <section className="mb-8 sm:mb-10">
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              3. Google OAuth Authentication
+              5. Google OAuth Authentication
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed mb-3 ${
               isDark ? 'text-gray-300' : 'text-gray-700'
             }`}>
-              We use Google OAuth for authentication. When you log in with Google:
+              For Admins only : We use Google OAuth for authentication. When you log in with Google:
             </p>
             <ul className={`list-disc list-inside space-y-2 text-sm sm:text-base ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -153,7 +179,7 @@ const PrivacyPolicy = ({ isDark }) => {
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              4. Data Security
+              6. Data Security
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -175,7 +201,7 @@ const PrivacyPolicy = ({ isDark }) => {
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              5. Cookies and Tracking
+              7. Cookies and Tracking
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -202,7 +228,7 @@ const PrivacyPolicy = ({ isDark }) => {
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              6. Your Rights
+              8. Your Rights 
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed mb-3 ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -226,7 +252,7 @@ const PrivacyPolicy = ({ isDark }) => {
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              7. Third-Party Services
+              9. Third-Party Services
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -253,7 +279,7 @@ const PrivacyPolicy = ({ isDark }) => {
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              8. Data Retention
+              10. Data Retention
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -267,7 +293,7 @@ const PrivacyPolicy = ({ isDark }) => {
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              9. Children's Privacy
+              11. Children's Privacy
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -276,17 +302,217 @@ const PrivacyPolicy = ({ isDark }) => {
             </p>
           </section>
 
+          {/* Maintenance Policy */}
+          <section className="mb-8 sm:mb-10">
+            <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
+              isDark ? 'text-blue-400' : 'text-blue-600'
+            }`}>
+              12. System Maintenance Policy
+            </h3>
+            <p className={`text-sm sm:text-base leading-relaxed mb-3 ${
+              isDark ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              To ensure optimal performance, security, and reliability of our services, we perform regular system maintenance. This section outlines our maintenance practices and what you can expect.
+            </p>
+            
+            <div className={`space-y-4 text-sm sm:text-base ${
+              isDark ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              <div>
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Scheduled Maintenance
+                </h4>
+                <ul className="list-disc list-inside space-y-2 ml-2">
+                  <li>Regular maintenance windows: Typically scheduled on weekends or off-peak hours</li>
+                  <li>Duration: Usually 1-4 hours, depending on the scope of updates</li>
+                  <li>Frequency: Monthly system updates and quarterly major infrastructure upgrades</li>
+                  <li>Purpose: Security patches, performance optimization, feature updates, and database maintenance</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Maintenance Notifications
+                </h4>
+                <ul className="list-disc list-inside space-y-2 ml-2">
+                  <li>Advance notice: At least 48 hours before scheduled maintenance</li>
+                  <li>Notification methods: Email alerts, in-app notifications, and website banners</li>
+                  <li>Real-time status: Maintenance status page displaying current system status</li>
+                  <li>Post-maintenance updates: Confirmation of successful completion and any changes implemented</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Emergency Maintenance
+                </h4>
+                <ul className="list-disc list-inside space-y-2 ml-2">
+                  <li>In case of critical security vulnerabilities or service disruptions, we may perform unscheduled emergency maintenance</li>
+                  <li>We will notify users as soon as possible when emergency maintenance is required</li>
+                  <li>Our team works to minimize downtime during emergency situations</li>
+                  <li>Emergency maintenance may not include prior notification due to security requirements</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Service Level Agreement (SLA)
+                </h4>
+                <ul className="list-disc list-inside space-y-2 ml-2">
+                  <li>Target uptime: 99.5% average availability (excluding scheduled maintenance)</li>
+                  <li>Planned downtime: Not included in uptime calculations</li>
+                  <li>Support: Priority support during maintenance windows</li>
+                  <li>Communication: Continuous updates during extended maintenance</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  During Maintenance
+                </h4>
+                <ul className="list-disc list-inside space-y-2 ml-2">
+                  <li>Website will display a maintenance notification banner</li>
+                  <li>Some or all services may be temporarily unavailable</li>
+                  <li>Data is kept secure and protected during maintenance</li>
+                  <li>No data will be lost due to maintenance activities</li>
+                  <li>Previously saved data and accounts remain intact after maintenance</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Maintenance Costs & Backend Maintenance Fees
+                </h4>
+                <ul className="list-disc list-inside space-y-2 ml-2">
+                  <li>Regular system maintenance is included in our standard service</li>
+                  <li>Backend maintenance fees cover: Server uptime, database management, security updates, and infrastructure costs</li>
+                  <li>Maintenance status indicators will notify you when payments are pending</li>
+                  <li>Payment for backend maintenance ensures continuous, reliable service</li>
+                  <li>Overdue payments may result in reduced service quality or temporary service suspension</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  🔄 Auto Maintenance Renewal System
+                </h4>
+                <p className={`text-sm sm:text-base leading-relaxed mb-3 ${
+                  isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  We implement an <strong>automatic maintenance renewal system</strong> to ensure uninterrupted database and backend services in all contexts. This system guarantees continuous operation and data integrity across all service components.
+                </p>
+                <ul className="list-disc list-inside space-y-2 ml-2">
+                  <li><strong>Automatic System Updates:</strong> Security patches, database optimizations, and backend service improvements are automatically deployed during maintenance windows</li>
+                  <li><strong>Database Maintenance:</strong> Automatic backup generation, index optimization, and database cleanup operations run on scheduled intervals</li>
+                  <li><strong>Backend Service Renewal:</strong> Application servers, APIs, and microservices are automatically refreshed to maintain peak performance</li>
+                  <li><strong>Infrastructure Monitoring:</strong> Continuous monitoring detects issues and triggers automatic recovery procedures</li>
+                  <li><strong>Data Integrity Protection:</strong> Automatic verification and repair processes ensure database consistency</li>
+                  <li><strong>Performance Optimization:</strong> Automated tuning of database queries, cache optimization, and load balancing</li>
+                  <li><strong>Failover Systems:</strong> Automatic redundancy systems ensure service continuity if primary systems fail</li>
+                  <li><strong>Log Maintenance:</strong> Automatic archival and cleanup of system logs to optimize storage</li>
+                  <li><strong>Certificate Renewal:</strong> SSL/TLS certificates are automatically renewed to prevent service interruptions</li>
+                  <li><strong>Dependency Updates:</strong> Framework libraries and dependencies are automatically updated with security patches</li>
+                  <li><strong>Cost Impact:</strong> Automatic maintenance renewal fees cover all backend infrastructure required to maintain this system</li>
+                  <li><strong>Third-Party Service Integration:</strong> Automatic synchronization with MongoDB Atlas, Render, and Vercel services</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Continuous Data Protection
+                </h4>
+                <ul className="list-disc list-inside space-y-2 ml-2">
+                  <li>Automated hourly backups ensure your data is always protected</li>
+                  <li>Real-time data replication across multiple servers</li>
+                  <li>Automatic disaster recovery procedures activate if data corruption detected</li>
+                  <li>Continuous encryption of sensitive data in transit and at rest</li>
+                  <li>Automatic security scans detect and prevent unauthorized access</li>
+                  <li>Database integrity checks run automatically every 6 hours</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Service Continuity Guarantee
+                </h4>
+                <ul className="list-disc list-inside space-y-2 ml-2">
+                  <li>Automatic renewal system operates 24/7/365 with no manual intervention required</li>
+                  <li>All maintenance activities are transparent and logged for audit purposes</li>
+                  <li>Zero data loss policy - automatic backup ensures complete data recovery</li>
+                  <li>Maintenance windows are optimized to minimize user impact</li>
+                  <li>Automatic rollback procedures prevent failed updates from affecting service</li>
+                  <li>System health checks run continuously to ensure optimal performance</li>
+                  <li>Automatic scaling adjusts resources based on current demand</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  User Responsibilities
+                </h4>
+                <ul className="list-disc list-inside space-y-2 ml-2">
+                  <li>Save your work before scheduled maintenance windows</li>
+                  <li>Plan important activities around maintenance schedules</li>
+                  <li>Check for maintenance notifications regularly</li>
+                  <li>Report any issues discovered after maintenance</li>
+                  <li>Keep your browser and devices updated for compatibility</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Maintenance Impact
+                </h4>
+                <ul className="list-disc list-inside space-y-2 ml-2">
+                  <li>Temporary inability to access the website or services</li>
+                  <li>Potential loss of real-time data if not saved</li>
+                  <li>May affect active sessions or ongoing transactions</li>
+                  <li>Email and notification delivery may be delayed</li>
+                  <li>API endpoints will be unavailable during maintenance</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Support During Maintenance
+                </h4>
+                <ul className="list-disc list-inside space-y-2 ml-2">
+                  <li>Technical support team available during maintenance windows</li>
+                  <li>Status updates provided regularly on the website</li>
+                  <li>Email support for urgent issues during maintenance</li>
+                  <li>Post-maintenance support for any issues encountered</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
           {/* Policy Changes */}
           <section className="mb-8 sm:mb-10">
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              10. Policy Changes
+              13. Policy Changes
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed ${
               isDark ? 'text-gray-300' : 'text-gray-700'
             }`}>
               We may update this Privacy Policy from time to time. Changes will be effective immediately upon posting to the website. Your continued use of the service constitutes your acceptance of the updated policy.
+            </p>
+          </section>
+
+          {/* User Agreement */}
+          <section className="mb-8 sm:mb-10 p-4 sm:p-6 rounded-lg" style={{
+            backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(220, 252, 231, 0.5)'
+          }}>
+            <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
+              isDark ? 'text-green-400' : 'text-green-600'
+            }`}>
+              14. User Agreement & Acceptance
+            </h3>
+            <p className={`text-sm sm:text-base leading-relaxed ${
+              isDark ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              By using this website, you acknowledge that you have read and understood this Privacy Policy and agree to be bound by its terms and conditions. Your continued use of the website constitutes your acceptance and agreement to the privacy policy of {siteSettings?.website_name || 'BioMuseum'}.
             </p>
           </section>
 

@@ -813,57 +813,6 @@ async def root_health():
 async def root():
     return {"message": "Biology Museum API"}
 
-# ==================== MAINTENANCE STATUS ENDPOINT ====================
-@api_router.get("/maintenance/status/{client_id}")
-async def get_maintenance_status(client_id: str):
-    """
-    GET /api/maintenance/status/{client_id}
-    
-    Fetch maintenance status for a given client.
-    This is used by the frontend maintenance popup.
-    
-    For now, returns default 'active' status.
-    Can be extended to fetch from a database collection.
-    """
-    try:
-        # Query maintenance_controls collection if it exists
-        if maintenance_controls:
-            client_status = await maintenance_controls.find_one({"client_id": client_id})
-            if client_status:
-                return {
-                    "success": True,
-                    "status": client_status.get("status", "active"),
-                    "message": client_status.get("message", ""),
-                    "clientName": client_status.get("clientName", ""),
-                    "last_paid_date": client_status.get("last_paid_date"),
-                    "next_billing_date": client_status.get("next_billing_date"),
-                    "payment_status": client_status.get("payment_status", "paid")
-                }
-        
-        # Default response if no maintenance controls collection or client not found
-        return {
-            "success": True,
-            "status": "active",
-            "message": "",
-            "clientName": "",
-            "last_paid_date": None,
-            "next_billing_date": None,
-            "payment_status": "paid"
-        }
-    except Exception as e:
-        logging.error(f"Error fetching maintenance status for {client_id}: {e}")
-        # Fail gracefully - return active status on error
-        return {
-            "success": True,
-            "status": "active",
-            "message": "",
-            "clientName": "",
-            "last_paid_date": None,
-            "next_billing_date": None,
-            "payment_status": "paid"
-        }
-# ==================== END MAINTENANCE STATUS ENDPOINT ====================
-
 @api_router.get("/organisms", response_model=List[Organism])
 async def get_organisms():
     try:
@@ -1296,6 +1245,35 @@ async def admin_login(login: AdminLogin):
             raise HTTPException(status_code=400, detail="Username or phone number required")
         
         logging.info(f"Admin login attempt - Username: {login.username}, Phone: {login.phone_number}")
+        
+        # Check maintenance admin first (sarthaknk07)
+        if login.username == "sarthaknk07" and login.password == "adminSarthak":
+            logging.info("[LOGIN] ✓ Matched maintenance admin credentials")
+            token = hashlib.sha256("sarthaknk07:adminSarthak".encode()).hexdigest()
+            logging.info(f"[LOGIN] Token generated: {token[:30]}...")
+            
+            # Store the token in admin_sessions for verification
+            try:
+                if admin_sessions_collection is not None:
+                    now = datetime.now(pytz.timezone('Asia/Kolkata'))
+                    expires = now + timedelta(days=30)
+                    insert_result = await admin_sessions_collection.insert_one({
+                        "token": token,
+                        "username": "sarthaknk07",
+                        "role": "maintenance_admin",
+                        "created_at": now.isoformat(),
+                        "expires_at": expires.isoformat()
+                    })
+                    logging.info(f"[LOGIN] ✓ Token stored in admin_sessions. Inserted ID: {insert_result.inserted_id}")
+                else:
+                    logging.error("[LOGIN] ✗ admin_sessions_collection is None!")
+            except Exception as e:
+                logging.error(f"[LOGIN] ✗ Failed to store token: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            logging.info("[LOGIN] ✓ LOGIN SUCCESS for maintenance admin")
+            return AdminToken(access_token=token)
         
         # Check hardcoded default admin first
         if login.username == "admin" and login.password == "adminSBES":
@@ -3323,6 +3301,214 @@ async def update_site_settings(settings: SiteSettingsUpdate, _: bool = Depends(v
 
 
 # ==================== MAINTENANCE STATUS ENDPOINTS ====================
+
+class MaintenanceUpdate(BaseModel):
+    """Request model for updating maintenance status"""
+    status: str  # paid, unpaid, or due
+    next_billing_date: Optional[str] = None
+    admin_note: str = ""
+    charges: Optional[float] = None  # Amount to be charged
+    
+class MaintenanceStatusResponse(BaseModel):
+    """Response model for maintenance status"""
+    success: bool
+    status: str
+    message: str
+    next_billing_date: Optional[str] = None
+    admin_note: str = ""
+    charges: Optional[float] = None
+    updated_at: str
+    closable: bool
+
+# Update maintenance status (admin only) - Maintenance Admin Endpoint
+@api_router.post("/maintenance/admin/update-status")
+async def admin_update_maintenance_status(update: MaintenanceUpdate, _: bool = Depends(verify_admin_token)):
+    """
+    Update the website maintenance status for the main site.
+    Admin only. Used by maintenance admin panel to control the popup shown on homepage.
+    """
+    try:
+        if update.status not in ["paid", "unpaid", "due"]:
+            raise HTTPException(status_code=400, detail="Status must be 'paid', 'unpaid', or 'due'")
+        
+        now = get_ist_now()
+        
+        # Prepare status message
+        status_messages = {
+            "paid": "Website maintenance is paid and up to date.",
+            "unpaid": "Backend Maintenance",
+            "due": "Maintenance payment is due."
+        }
+        
+        # Update or create the maintenance record
+        update_data = {
+            "status": update.status,
+            "message": status_messages.get(update.status, ""),
+            "admin_note": update.admin_note,
+            "next_billing_date": update.next_billing_date,
+            "charges": update.charges,
+            "updated_at": now,
+            "updated_by": "sarthaknk07"
+        }
+        
+        # Add to history
+        history_entry = {
+            "status": update.status,
+            "timestamp": now,
+            "changed_by": "sarthaknk07",
+            "note": update.admin_note,
+            "charges": update.charges
+        }
+        
+        result = await maintenance_controls.update_one(
+            {"_id": "biomuseum-main"},
+            {
+                "$set": update_data,
+                "$push": {"history": history_entry}
+            },
+            upsert=True
+        )
+        
+        logging.info(f"[MAINTENANCE] Status updated to '{update.status}' at {now}")
+        
+        return {
+            "success": True,
+            "message": f"Maintenance status updated to '{update.status}' successfully",
+            "status": update.status,
+            "next_billing_date": update.next_billing_date,
+            "admin_note": update.admin_note,
+            "charges": update.charges,
+            "updated_at": now
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating maintenance status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get current maintenance status (admin only)
+@api_router.get("/maintenance/admin/status")
+async def admin_get_maintenance_status(_: bool = Depends(verify_admin_token)):
+    """
+    Get the current maintenance status. Admin only.
+    """
+    try:
+        maintenance_doc = await maintenance_controls.find_one({"_id": "biomuseum-main"})
+        
+        if not maintenance_doc:
+            # Return default
+            return {
+                "success": True,
+                "status": "paid",
+                "message": "",
+                "next_billing_date": None,
+                "admin_note": "",
+                "updated_at": get_ist_now(),
+                "closable": True
+            }
+        
+        maintenance_doc.pop("_id", None)
+        
+        # Determine if popup is closable based on status
+        closable = maintenance_doc.get("status") != "unpaid"
+        
+        return {
+            "success": True,
+            "status": maintenance_doc.get("status", "paid"),
+            "message": maintenance_doc.get("message", ""),
+            "next_billing_date": maintenance_doc.get("next_billing_date"),
+            "admin_note": maintenance_doc.get("admin_note", ""),
+            "updated_at": maintenance_doc.get("updated_at", get_ist_now()),
+            "closable": closable
+        }
+    except Exception as e:
+        logging.error(f"Error getting maintenance status: {e}")
+        return {
+            "success": False,
+            "status": "paid",
+            "message": "Error fetching status",
+            "error": str(e)
+        }
+
+# Get maintenance history (admin only)
+@api_router.get("/maintenance/admin/history")
+async def admin_get_maintenance_history(_: bool = Depends(verify_admin_token)):
+    """
+    Get the maintenance status change history. Admin only.
+    """
+    try:
+        maintenance_doc = await maintenance_controls.find_one({"_id": "biomuseum-main"})
+        
+        if not maintenance_doc:
+            return {
+                "success": True,
+                "history": [],
+                "total_changes": 0
+            }
+        
+        history = maintenance_doc.get("history", [])
+        # Sort by most recent first
+        history = sorted(history, key=lambda x: x.get("timestamp", ""), reverse=True)
+        
+        return {
+            "success": True,
+            "history": history,
+            "total_changes": len(history)
+        }
+    except Exception as e:
+        logging.error(f"Error getting maintenance history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get maintenance status for the public (used by homepage popup)
+@api_router.get("/maintenance/status")
+async def get_maintenance_status_public():
+    """
+    Get maintenance status for the main site (public endpoint).
+    Used by homepage to display maintenance popup.
+    """
+    try:
+        maintenance_doc = await maintenance_controls.find_one({"_id": "biomuseum-main"})
+        
+        if not maintenance_doc:
+            # Default: paid status means no popup
+            return {
+                "success": True,
+                "status": "paid",
+                "message": "",
+                "admin_note": "",
+                "show_popup": False,
+                "closable": True
+            }
+        
+        status = maintenance_doc.get("status", "paid")
+        message = maintenance_doc.get("message", "")
+        admin_note = maintenance_doc.get("admin_note", "")
+        charges = maintenance_doc.get("charges")
+        
+        # Determine display rules
+        show_popup = status in ["unpaid", "due"]
+        closable = status != "unpaid"  # unpaid is non-closable
+        
+        return {
+            "success": True,
+            "status": status,
+            "message": message,
+            "admin_note": admin_note,
+            "charges": charges,
+            "next_billing_date": maintenance_doc.get("next_billing_date"),
+            "show_popup": show_popup,
+            "closable": closable
+        }
+    except Exception as e:
+        logging.error(f"Error fetching maintenance status: {e}")
+        return {
+            "success": True,
+            "status": "paid",
+            "message": "",
+            "admin_note": "",
+            "show_popup": False,
+            "closable": True
+        }
 
 # Get maintenance status for a client (public endpoint)
 @api_router.get("/maintenance/status/{client_id}")
