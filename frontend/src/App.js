@@ -2736,7 +2736,7 @@ const PrintOrganismModal = ({ organism, isDark, onClose }) => {
           <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
           <script>
             new QRCode(document.getElementById("qr-placeholder"), {
-              text: "${window.location.origin}${window.location.pathname}?organism=${organism.id}",
+              text: "${window.location.origin}/organism/${organism.id}",
               width: 180,
               height: 180,
               colorDark: "#000000",
@@ -2776,7 +2776,7 @@ const PrintOrganismModal = ({ organism, isDark, onClose }) => {
           
           <div className={`flex justify-center py-3 sm:py-4 ${isDark ? 'bg-gray-700' : 'bg-white'} rounded overflow-hidden`}>
             <QRCodeSVG 
-              value={`${window.location.origin}${window.location.pathname}?organism=${organism.id}`} 
+              value={`${window.location.origin}/organism/${organism.id}`} 
               size={Math.min(140, window.innerWidth - 80)}
               level="H"
               includeMargin={true}
