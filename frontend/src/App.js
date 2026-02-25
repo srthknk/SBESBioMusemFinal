@@ -4339,12 +4339,12 @@ const OrganismsPage = () => {
         {/* Pagination Controls */}
         {organisms.length > 0 && (
           <div className={`mt-8 sm:mt-10 p-3 sm:p-5 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4">
+            <div className="flex flex-row items-center justify-center sm:justify-between gap-2 sm:gap-4">
               {/* Previous Button */}
               <button
                 onClick={handlePreviousPage}
                 disabled={currentPage === 1}
-                className={`flex-1 sm:flex-none px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
+                className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-0.5 sm:gap-2 whitespace-nowrap ${
                   currentPage === 1
                     ? `${isDark ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`
                     : `${isDark ? 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg' : 'bg-blue-500 hover:bg-blue-600 text-white hover:shadow-lg'}`
@@ -4355,11 +4355,11 @@ const OrganismsPage = () => {
               </button>
 
               {/* Page Info */}
-              <div className={`text-center ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                <p className="text-xs sm:text-sm font-semibold leading-tight">
+              <div className={`text-center text-xs sm:text-sm px-1 sm:px-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                <p className="font-semibold leading-tight">
                   <span className="font-bold">{currentPage}</span> / <span className="font-bold">{totalPages}</span>
                 </p>
-                <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`text-xs mt-0.5 hidden sm:block ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   {startIndex + 1}-{Math.min(endIndex, organisms.length)} of {organisms.length}
                 </p>
               </div>
@@ -4368,7 +4368,7 @@ const OrganismsPage = () => {
               <button
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
-                className={`flex-1 sm:flex-none px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
+                className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-0.5 sm:gap-2 whitespace-nowrap ${
                   currentPage === totalPages
                     ? `${isDark ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`
                     : `${isDark ? 'bg-green-600 hover:bg-green-700 text-white hover:shadow-lg' : 'bg-green-500 hover:bg-green-600 text-white hover:shadow-lg'}`
