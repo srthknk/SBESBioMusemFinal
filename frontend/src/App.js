@@ -960,6 +960,540 @@ const OrganismDetail = () => {
   );
 };
 
+// Print QR Codes Tab Component
+const PrintQRCodesTab = ({ organisms, isDark }) => {
+  const [selectedOrganisms, setSelectedOrganisms] = useState([]);
+  const [showQRCodes, setShowQRCodes] = useState(false);
+  const [printHistory, setPrintHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const printRef = React.useRef();
+  const MAX_ORGANISMS = 20;
+  const STORAGE_KEY = 'biomuseum_print_history';
+
+  // Load history from localStorage on mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem(STORAGE_KEY);
+    if (savedHistory) {
+      try {
+        setPrintHistory(JSON.parse(savedHistory));
+      } catch (error) {
+        console.error('Error loading print history:', error);
+      }
+    }
+  }, []);
+
+  // Save history to localStorage
+  const savePrintHistory = (print) => {
+    const updatedHistory = [print, ...printHistory].slice(0, 10); // Keep last 10 prints
+    setPrintHistory(updatedHistory);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedHistory));
+  };
+
+  const handleSelectOrganism = (organism) => {
+    setSelectedOrganisms(prev => {
+      const isSelected = prev.find(o => o.id === organism.id);
+      if (isSelected) {
+        return prev.filter(o => o.id !== organism.id);
+      } else {
+        if (prev.length < MAX_ORGANISMS) {
+          return [...prev, organism];
+        } else {
+          showToast(`Maximum ${MAX_ORGANISMS} organisms can be selected`, 'warning');
+          return prev;
+        }
+      }
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedOrganisms.length === organisms.length) {
+      setSelectedOrganisms([]);
+    } else {
+      if (organisms.length <= MAX_ORGANISMS) {
+        setSelectedOrganisms([...organisms]);
+      } else {
+        setSelectedOrganisms(organisms.slice(0, MAX_ORGANISMS));
+        showToast(`Selected first ${MAX_ORGANISMS} organisms`, 'info');
+      }
+    }
+  };
+
+  const handlePrint = async () => {
+    // Create a temporary container to render QR codes
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'fixed';
+    tempContainer.style.top = '-9999px';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.zIndex = '-1';
+    document.body.appendChild(tempContainer);
+
+    try {
+      // Convert all QR codes to data URLs
+      const qrDataUrls = await Promise.all(
+        selectedOrganisms.map(async (organism) => {
+          return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            
+            // Find the QR code SVG from the preview grid
+            const qrContainers = document.querySelectorAll('[data-organism-id]');
+            let qrSvg = null;
+            
+            qrContainers.forEach(container => {
+              if (container.getAttribute('data-organism-id') === organism.id) {
+                qrSvg = container.querySelector('svg');
+              }
+            });
+
+            if (qrSvg) {
+              // Clone and render the SVG
+              const svgClone = qrSvg.cloneNode(true);
+              const svgData = new XMLSerializer().serializeToString(svgClone);
+              const img = new Image();
+              const blob = new Blob([svgData], { type: 'image/svg+xml' });
+              const url = URL.createObjectURL(blob);
+              
+              img.onload = () => {
+                canvas.width = 150;
+                canvas.height = 150;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, 150, 150);
+                ctx.drawImage(img, 0, 0, 150, 150);
+                resolve(canvas.toDataURL('image/png'));
+                URL.revokeObjectURL(url);
+              };
+              
+              img.onerror = () => {
+                resolve(canvas.toDataURL('image/png'));
+              };
+              
+              img.src = url;
+            } else {
+              resolve(null);
+            }
+          });
+        })
+      );
+
+      // Create print window
+      const printWindow = window.open('', '_blank');
+      
+      let htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Organism QR Codes - Print</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            html, body { 
+              width: 100%; 
+              height: 100%;
+              padding: 0;
+              margin: 0;
+            }
+            body { 
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              background: white; 
+              color: #333;
+            }
+            .page { 
+              width: 210mm;
+              height: 297mm;
+              margin: 0 auto;
+              padding: 20mm;
+              background: white;
+              page-break-after: always;
+            }
+            .content {
+              width: 100%;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 25px; 
+              border-bottom: 3px solid #7c3aed;
+              padding-bottom: 15px;
+            }
+            .header h1 { 
+              font-size: 26px; 
+              margin-bottom: 5px; 
+              color: #7c3aed;
+              font-weight: bold;
+            }
+            .header p { 
+              font-size: 11px; 
+              color: #666;
+            }
+            .qr-grid { 
+              display: grid; 
+              grid-template-columns: repeat(4, 1fr); 
+              gap: 12px;
+              width: 100%;
+            }
+            .qr-container { 
+              text-align: center; 
+              border: 1px solid #d1d5db; 
+              padding: 10px;
+              border-radius: 6px;
+              background: #ffffff;
+              page-break-inside: avoid;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+            }
+            .organism-name { 
+              font-weight: bold; 
+              font-size: 11px; 
+              margin-bottom: 3px;
+              color: #1f2937;
+              word-break: break-word;
+              max-width: 100%;
+              line-height: 1.2;
+            }
+            .organism-species { 
+              font-size: 9px; 
+              color: #6b7280; 
+              font-style: italic;
+              margin-bottom: 8px;
+              word-break: break-word;
+              max-width: 100%;
+            }
+            .qr-code-wrapper { 
+              display: flex; 
+              justify-content: center; 
+              align-items: center;
+              width: 100%;
+              min-height: 120px;
+            }
+            .qr-code-wrapper img { 
+              width: 110px;
+              height: 110px;
+              object-fit: contain;
+            }
+            .footer { 
+              text-align: center; 
+              margin-top: 25px; 
+              padding-top: 15px;
+              border-top: 1px solid #e5e7eb;
+              font-size: 10px;
+              color: #9ca3af;
+            }
+            @media print {
+              * {
+                margin: 0 !important;
+                padding: 0 !important;
+              }
+              body { 
+                margin: 0;
+                padding: 0;
+              }
+              .page {
+                margin: 0;
+                padding: 20mm;
+                page-break-after: always;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            <div class="content">
+              <div class="header">
+                <h1>🧬 Organism QR Codes</h1>
+                <p>Generated: ${new Date().toLocaleString()}</p>
+              </div>
+              <div class="qr-grid">
+      `;
+
+      selectedOrganisms.forEach((organism, index) => {
+        const qrDataUrl = qrDataUrls[index];
+        htmlContent += `
+          <div class="qr-container">
+            <div class="organism-name">${organism.name}</div>
+            <div class="organism-species">${organism.scientific_name || 'N/A'}</div>
+            <div class="qr-code-wrapper">
+              ${qrDataUrl ? `<img src="${qrDataUrl}" alt="QR Code for ${organism.name}"/>` : '<div style="width:110px;height:110px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:10px;">QR Error</div>'}
+            </div>
+          </div>
+        `;
+      });
+
+      htmlContent += `
+              </div>
+              <div class="footer">
+                <p><strong>Scan QR codes to view organism details</strong></p>
+                <p>Total QR Codes: ${selectedOrganisms.length} | Redirect: website.com/organism/{organism_id}</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+
+      // Wait for images to load then print
+      setTimeout(() => {
+        printWindow.print();
+        
+        // Save to print history
+        savePrintHistory({
+          id: Date.now(),
+          count: selectedOrganisms.length,
+          timestamp: new Date().toLocaleString(),
+          organisms: selectedOrganisms.map(o => o.name)
+        });
+        
+        showToast(`✅ ${selectedOrganisms.length} QR codes printed successfully!`, 'success', 2000);
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error generating print:', error);
+      showToast('Error generating QR codes for print', 'error');
+    } finally {
+      // Clean up
+      document.body.removeChild(tempContainer);
+    }
+  };
+
+  return (
+    <div className={`${isDark ? 'bg-gray-900' : 'bg-white'} rounded-lg shadow-lg p-4 sm:p-6`}>
+      {!showQRCodes ? (
+        <>
+          <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            <i className="fa-solid fa-print mr-3"></i>Print Organism QR Codes
+          </h2>
+
+          <div className={`mb-6 p-4 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-blue-50'}`}>
+            <p className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              Select up to <strong>{MAX_ORGANISMS}</strong> organisms to generate and print their QR codes.
+              Selected: <strong className={selectedOrganisms.length > MAX_ORGANISMS ? 'text-red-500' : isDark ? 'text-blue-400' : 'text-blue-600'}>{selectedOrganisms.length}</strong>
+            </p>
+          </div>
+
+          <div className="mb-6 flex gap-3">
+            <button
+              onClick={handleSelectAll}
+              className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                isDark
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
+            >
+              <i className="fa-solid fa-check-double mr-2"></i>
+              {selectedOrganisms.length === organisms.length ? 'Deselect All' : 'Select All'}
+            </button>
+            <button
+              onClick={() => setSelectedOrganisms([])}
+              className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                isDark
+                  ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                  : 'bg-gray-500 hover:bg-gray-600 text-white'
+              }`}
+            >
+              <i className="fa-solid fa-xmark mr-2"></i>Clear Selection
+            </button>
+          </div>
+
+          {/* Organisms Selection List */}
+          <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8 max-h-96 overflow-y-auto ${isDark ? 'bg-gray-800' : 'bg-gray-50'} p-4 rounded-lg`}>
+            {organisms.map((organism) => (
+              <label
+                key={organism.id}
+                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                  selectedOrganisms.find(o => o.id === organism.id)
+                    ? isDark
+                      ? 'bg-blue-900 border-2 border-blue-600'
+                      : 'bg-blue-100 border-2 border-blue-500'
+                    : isDark
+                    ? 'bg-gray-700 border-2 border-gray-600'
+                    : 'bg-white border-2 border-gray-300'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedOrganisms.find(o => o.id === organism.id) ? true : false}
+                  onChange={() => handleSelectOrganism(organism)}
+                  className="w-5 h-5 cursor-pointer"
+                  disabled={selectedOrganisms.length >= MAX_ORGANISMS && !selectedOrganisms.find(o => o.id === organism.id)}
+                />
+                <div className="flex-1">
+                  <div className={`font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                    {organism.name}
+                  </div>
+                  <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {organism.scientific_name}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+
+          {/* Generate Button */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowQRCodes(true)}
+              disabled={selectedOrganisms.length === 0}
+              className={`flex-1 px-6 py-3 rounded-lg font-bold text-lg transition-all ${
+                selectedOrganisms.length === 0
+                  ? `${isDark ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`
+                  : `${isDark ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'} text-white`
+              }`}
+            >
+              <i className="fa-solid fa-qrcode mr-3"></i>
+              Generate QR Codes ({selectedOrganisms.length})
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              <i className="fa-solid fa-qrcode mr-3"></i>QR Codes Preview
+            </h2>
+            <button
+              onClick={() => setShowQRCodes(false)}
+              className={`px-4 py-2 rounded-lg font-semibold ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}
+            >
+              <i className="fa-solid fa-arrow-left mr-2"></i>Back
+            </button>
+          </div>
+
+          {/* Responsive Grid: QR Codes + History */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* QR Codes Section - Takes 2 columns on desktop */}
+            <div className="lg:col-span-2">
+              <div className={`p-4 rounded-xl border-2 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                <h3 className={`text-lg font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  <i className="fa-solid fa-images mr-2"></i>Selected QR Codes ({selectedOrganisms.length})
+                </h3>
+                <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[500px] overflow-y-auto p-2 rounded-lg ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
+                  {selectedOrganisms.map((organism) => (
+                    <div key={organism.id} data-organism-id={organism.id} className={`text-center p-3 rounded-lg border transition-all hover:shadow-lg ${isDark ? 'bg-gray-800 border-gray-700 hover:border-purple-500' : 'bg-white border-gray-200 hover:border-purple-400'}`}>
+                      <div className={`text-xs font-bold mb-2 truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                        {organism.name}
+                      </div>
+                      <div className={`text-[9px] mb-2 truncate ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {organism.scientific_name}
+                      </div>
+                      <div className="flex justify-center transform hover:scale-105 transition-transform">
+                        <QRCodeSVG
+                          value={`${window.location.origin}/organism/${organism.id}`}
+                          size={100}
+                          level="H"
+                          includeMargin={true}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* History Section - Takes 1 column on desktop, full width on mobile */}
+            <div className={`p-5 rounded-xl border-2 ${isDark ? 'bg-gradient-to-br from-purple-900 to-gray-800 border-purple-700' : 'bg-gradient-to-br from-purple-50 to-blue-50 border-purple-300'}`}>
+              <h3 className={`text-lg font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-purple-200' : 'text-purple-800'}`}>
+                <i className="fa-solid fa-history"></i>
+                Print History
+              </h3>
+              
+              {printHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <i className={`fa-solid fa-inbox text-3xl mb-3 block ${isDark ? 'text-gray-600' : 'text-purple-300'}`}></i>
+                  <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-purple-600'}`}>
+                    No history yet
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[420px] overflow-y-auto">
+                  {printHistory.map((print, index) => (
+                    <div
+                      key={print.id}
+                      className={`p-3 rounded-lg border-l-4 transition-all cursor-pointer hover:scale-[1.02] ${
+                        isDark
+                          ? 'bg-gray-700 border-purple-400 hover:bg-gray-650'
+                          : 'bg-white border-purple-400 hover:shadow-md'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${
+                          isDark ? 'bg-purple-800 text-purple-100' : 'bg-purple-200 text-purple-800'
+                        }`}>
+                          <i className="fa-solid fa-qrcode"></i>
+                          {print.count} QR{print.count !== 1 ? 's' : ''}
+                        </span>
+                        <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                          {new Date(print.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className={`text-xs leading-tight mb-2.5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {print.organisms.slice(0, 2).join(', ')}{print.organisms.length > 2 ? `...` : ''}
+                      </p>
+                      <button
+                        onClick={() => {
+                          const historyOrganisms = organisms.filter(o => 
+                            print.organisms.includes(o.name)
+                          );
+                          setSelectedOrganisms(historyOrganisms);
+                          showToast('Loaded from history', 'info', 1500);
+                        }}
+                        className={`w-full px-2 py-1.5 rounded text-xs font-semibold transition-all ${
+                          isDark
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : 'bg-blue-500 hover:bg-blue-600 text-white'
+                        }`}
+                      >
+                        <i className="fa-solid fa-arrow-rotate-right mr-1"></i>Reuse
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {printHistory.length > 0 && (
+                <button
+                  onClick={() => {
+                    setPrintHistory([]);
+                    localStorage.removeItem(STORAGE_KEY);
+                    showToast('Print history cleared', 'success', 1500);
+                  }}
+                  className={`w-full mt-4 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    isDark ? 'bg-red-700 hover:bg-red-600 text-red-100' : 'bg-red-100 hover:bg-red-200 text-red-700'
+                  }`}
+                >
+                  <i className="fa-solid fa-trash mr-1.5"></i>Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Print Buttons */}
+          <div className="flex gap-3 flex-wrap">
+            <button
+              onClick={handlePrint}
+              className={`flex-1 min-w-[160px] px-6 py-3 rounded-lg font-bold text-base transition-all shadow-lg hover:shadow-xl ${
+                isDark ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
+              } text-white`}
+            >
+              <i className="fa-solid fa-print mr-2"></i>Print
+            </button>
+            <button
+              onClick={handlePrint}
+              className={`flex-1 min-w-[160px] px-6 py-3 rounded-lg font-bold text-base transition-all shadow-lg hover:shadow-xl ${
+                isDark ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'
+              } text-white`}
+            >
+              <i className="fa-solid fa-download mr-2"></i>Export PDF
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 // Admin Panel with full functionality
 const AdminPanel = () => {
   const { isAdmin, logout, token } = React.useContext(AdminContext);
@@ -1109,6 +1643,18 @@ const AdminPanel = () => {
               <i className="fa-solid fa-pen-to-square text-xs"></i> Manage Organisms
             </button>
             <button
+              onClick={() => setActiveView('print')}
+              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'print' 
+                ? `border-b-2 text-white` 
+                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
+              style={activeView === 'print' ? {
+                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
+                color: siteSettings?.primary_color || '#7c3aed'
+              } : {}}
+            >
+              <i className="fa-solid fa-print text-xs"></i> Print QR
+            </button>
+            <button
               onClick={() => setActiveView('suggestions')}
               className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'suggestions' 
                 ? `border-b-2 text-white` 
@@ -1204,6 +1750,12 @@ const AdminPanel = () => {
                 <i className="fa-solid fa-pen-to-square mr-2"></i>Manage Organisms
               </button>
               <button
+                onClick={() => { setActiveView('print'); setMobileMenuOpen(false); }}
+                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'print' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
+              >
+                <i className="fa-solid fa-print mr-2"></i>Print QR Codes
+              </button>
+              <button
                 onClick={() => { setActiveView('suggestions'); setMobileMenuOpen(false); }}
                 className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'suggestions' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
               >
@@ -1274,6 +1826,12 @@ const AdminPanel = () => {
             isDark={isDark}
             onUpdate={fetchOrganisms}
             onEdit={setEditingOrganism}
+          />
+        )}
+        {activeView === 'print' && (
+          <PrintQRCodesTab 
+            organisms={organisms}
+            isDark={isDark}
           />
         )}
         {activeView === 'suggestions' && (
