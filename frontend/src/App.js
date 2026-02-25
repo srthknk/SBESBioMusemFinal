@@ -3081,6 +3081,7 @@ const ManageOrganisms = ({ organisms, token, isDark, onUpdate }) => {
       <EditOrganismForm
         organism={editingOrganism}
         token={token}
+        isDark={isDark}
         onSuccess={() => {
           setEditingOrganism(null);
           onUpdate();
@@ -3174,7 +3175,7 @@ const ManageOrganisms = ({ organisms, token, isDark, onUpdate }) => {
 };
 
 // Edit Organism Form Component
-const EditOrganismForm = ({ organism, token, onSuccess, onCancel }) => {
+const EditOrganismForm = ({ organism, token, isDark, onSuccess, onCancel }) => {
   const [formData, setFormData] = useState({
     name: organism.name || '',
     scientific_name: organism.scientific_name || '',
@@ -3188,6 +3189,7 @@ const EditOrganismForm = ({ organism, token, onSuccess, onCancel }) => {
   });
   const [loading, setLoading] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
+  const [addingImageUrl, setAddingImageUrl] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -3235,6 +3237,44 @@ const EditOrganismForm = ({ organism, token, onSuccess, onCancel }) => {
     }));
   };
 
+  const handleAddImageUrl = async () => {
+    if (!imageUrl.trim()) {
+      showToast('Please enter an image URL', 'error');
+      return;
+    }
+
+    setAddingImageUrl(true);
+    try {
+      // Validate URL format
+      new URL(imageUrl);
+      
+      // Check if URL is valid by attempting to fetch
+      const response = await fetch(imageUrl, { method: 'HEAD' });
+      if (!response.ok) {
+        showToast('Invalid image URL or inaccessible image', 'error');
+        setAddingImageUrl(false);
+        return;
+      }
+
+      // Add the URL directly to images
+      setFormData(prev => ({
+        ...prev,
+        images: [...prev.images, imageUrl]
+      }));
+      
+      setImageUrl('');
+      showToast('Image URL added successfully!', 'success', 2000);
+    } catch (error) {
+      if (error instanceof TypeError) {
+        showToast('Please enter a valid URL (e.g., https://example.com/image.jpg)', 'error');
+      } else {
+        showToast('Error loading image from URL. Check if the URL is publicly accessible.', 'error');
+      }
+    } finally {
+      setAddingImageUrl(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -3255,12 +3295,12 @@ const EditOrganismForm = ({ organism, token, onSuccess, onCancel }) => {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-semibold">Edit Organism: {organism.name}</h2>
+    <div className={`${isDark ? 'bg-gray-900' : 'bg-white'}`}>
+      <div className={`flex items-center justify-between mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+        <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Edit Organism: {organism.name}</h2>
         <button
           onClick={onCancel}
-          className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
+          className={`px-4 py-2 rounded-lg font-semibold transition-all ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}
         >
           Cancel
         </button>
@@ -3270,7 +3310,7 @@ const EditOrganismForm = ({ organism, token, onSuccess, onCancel }) => {
         {/* Basic Information */}
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-700'}`}>
               Common Name *
             </label>
             <input
@@ -3278,13 +3318,18 @@ const EditOrganismForm = ({ organism, token, onSuccess, onCancel }) => {
               name="name"
               value={formData.name}
               onChange={handleInputChange}
+              placeholder="e.g., Lion"
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 transition-all ${
+                isDark
+                  ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-blue-900'
+                  : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:ring-blue-200'
+              }`}
             />
           </div>
           
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-700'}`}>
               Scientific Name *
             </label>
             <input
@@ -3292,19 +3337,24 @@ const EditOrganismForm = ({ organism, token, onSuccess, onCancel }) => {
               name="scientific_name"
               value={formData.scientific_name}
               onChange={handleInputChange}
+              placeholder="e.g., Panthera leo"
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 transition-all ${
+                isDark
+                  ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-blue-900'
+                  : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:ring-blue-200'
+              }`}
             />
           </div>
         </div>
 
         {/* Classification */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-700 mb-4">🔬 Taxonomic Classification</h3>
+          <h3 className={`text-lg font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-700'}`}>🔬 Taxonomic Classification</h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
             {['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'].map((field) => (
               <div key={field}>
-                <label className="block text-sm font-medium text-gray-700 mb-1 capitalize">
+                <label className={`block text-sm font-semibold mb-1 capitalize ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
                   {field}
                 </label>
                 <input
@@ -3312,7 +3362,12 @@ const EditOrganismForm = ({ organism, token, onSuccess, onCancel }) => {
                   name={`classification.${field}`}
                   value={formData.classification[field] || ''}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder={`Enter ${field}`}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 transition-all ${
+                    isDark
+                      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-blue-900'
+                      : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:ring-blue-200'
+                  }`}
                 />
               </div>
             ))}
@@ -3322,79 +3377,140 @@ const EditOrganismForm = ({ organism, token, onSuccess, onCancel }) => {
         {/* Description Fields */}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-700'}`}>
               🏗️ Morphology *
             </label>
             <textarea
               name="morphology"
               value={formData.morphology}
               onChange={handleInputChange}
+              placeholder="Describe body structure, size, coloration..."
               required
               rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 transition-all ${
+                isDark
+                  ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-blue-900'
+                  : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:ring-blue-200'
+              }`}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-700'}`}>
               ⚡ Physiology *
             </label>
             <textarea
               name="physiology"
               value={formData.physiology}
               onChange={handleInputChange}
+              placeholder="Describe functions, metabolism, growth..."
               required
               rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 transition-all ${
+                isDark
+                  ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-blue-900'
+                  : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:ring-blue-200'
+              }`}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-700'}`}>
               📝 Description
             </label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleInputChange}
+              placeholder="General information about the organism..."
               rows={3}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 transition-all ${
+                isDark
+                  ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-blue-900'
+                  : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:ring-blue-200'
+              }`}
             />
           </div>
         </div>
 
         {/* Image Management */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <label className={`block text-sm font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-700'}`}>
             📸 Images
           </label>
           
           {/* Existing Images */}
           {formData.images.length > 0 && (
-            <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-              {formData.images.map((image, index) => (
-                <div key={index} className="relative group">
-                  <img
-                    src={image}
-                    alt={`${formData.name} ${index + 1}`}
-                    className="w-full h-24 object-cover rounded-lg"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeImage(index)}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs hover:bg-red-600"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+            <div className={`mb-4 p-3 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
+              <p className={`text-sm font-medium mb-3 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                {formData.images.length} image{formData.images.length !== 1 ? 's' : ''} added
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {formData.images.map((image, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={image}
+                      alt={`${formData.name} ${index + 1}`}
+                      className={`w-full h-24 object-cover rounded-lg border ${isDark ? 'border-gray-700' : 'border-gray-300'}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-7 h-7 text-sm font-bold flex items-center justify-center transition-all"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           
-          {/* Add New Images */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-            <label className="cursor-pointer text-blue-600 hover:text-blue-700 font-medium">
-              📁 Add More Images
+          {/* Add by URL */}
+          <div className={`mb-4 p-4 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-600' : 'bg-blue-50 border-blue-200'}`}>
+            <label className={`block text-sm font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-700'}`}>
+              🔗 Add Image from URL
+            </label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddImageUrl();
+                  }
+                }}
+                placeholder="Paste image URL (https://example.com/image.jpg)"
+                className={`flex-1 px-4 py-2 border-2 rounded-lg focus:ring-2 focus:border-blue-500 transition-all ${
+                  isDark
+                    ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-900 focus:ring-opacity-50'
+                    : 'border-blue-300 bg-white text-gray-900 placeholder-gray-400 focus:ring-blue-200'
+                }`}
+              />
+              <button
+                type="button"
+                onClick={handleAddImageUrl}
+                disabled={addingImageUrl || !imageUrl.trim()}
+                className={`px-6 py-2 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                  addingImageUrl || !imageUrl.trim()
+                    ? `${isDark ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`
+                    : `${isDark ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-green-500 hover:bg-green-600 text-white'}`
+                }`}
+              >
+                {addingImageUrl ? '⏳ Adding...' : '✓ Add'}
+              </button>
+            </div>
+            <p className={`text-xs mt-3 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+              💡 Paste URL of a publicly accessible image (JPEG, PNG, WebP format). Examples: https://example.com/monkey.jpg
+            </p>
+          </div>
+          
+          {/* Add by File */}
+          <div className={`border-2 border-dashed rounded-lg p-4 text-center ${isDark ? 'border-gray-500 bg-gray-900' : 'border-gray-300 bg-gray-50'}`}>
+            <label className={`cursor-pointer font-semibold transition-all ${isDark ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-700'}`}>
+              📁 Or Upload Images from Device
               <input
                 type="file"
                 multiple
@@ -3403,28 +3519,36 @@ const EditOrganismForm = ({ organism, token, onSuccess, onCancel }) => {
                 className="hidden"
               />
             </label>
+            <p className={`text-xs mt-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+              Drag and drop or click to select
+            </p>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-4">
+        <div className="flex justify-end gap-4 pt-4">
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50"
+            className={`px-6 py-2 border rounded-lg font-semibold transition-all ${
+              isDark
+                ? 'border-gray-700 text-gray-300 hover:bg-gray-800'
+                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className={`px-8 py-3 rounded-lg font-semibold text-white ${
+            className={`px-8 py-2 rounded-lg font-semibold text-white transition-all flex items-center gap-2 ${
               loading
                 ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
-            } transition-colors`}
+                : `${isDark ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'}`
+            }`}
           >
-            {loading ? 'Updating...' : <><i className="fa-solid fa-check mr-1"></i>Update Organism</>}
+            <i className="fa-solid fa-check"></i>
+            {loading ? 'Updating...' : 'Update Organism'}
           </button>
         </div>
       </form>
@@ -3439,6 +3563,8 @@ const OrganismsPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedKingdom, setSelectedKingdom] = useState('');
   const [selectedPhylum, setSelectedPhylum] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
   const navigate = useNavigate();
   const { isDark, toggleTheme } = React.useContext(ThemeContext);
   const { siteSettings } = React.useContext(SiteContext);
@@ -3462,12 +3588,14 @@ const OrganismsPage = () => {
   const handleKingdomChange = (e) => {
     const kingdom = e.target.value;
     setSelectedKingdom(kingdom);
+    setCurrentPage(1);
     filterOrganisms(kingdom, selectedPhylum);
   };
 
   const handlePhylumChange = (e) => {
     const phylum = e.target.value;
     setSelectedPhylum(phylum);
+    setCurrentPage(1);
     filterOrganisms(selectedKingdom, phylum);
   };
 
@@ -3491,6 +3619,26 @@ const OrganismsPage = () => {
 
   const getUniquePhyla = () => {
     return [...new Set(allOrganisms.map(org => org.classification?.phylum).filter(Boolean))];
+  };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(organisms.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedOrganisms = organisms.slice(startIndex, endIndex);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   if (loading) {
@@ -3598,7 +3746,7 @@ const OrganismsPage = () => {
 
         {/* Organisms Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {organisms.map((organism) => (
+          {paginatedOrganisms.map((organism) => (
             <div
               key={organism.id}
               onClick={() => navigate(`/organism/${organism.id}`)}
@@ -3630,6 +3778,71 @@ const OrganismsPage = () => {
           ))}
         </div>
 
+        {/* Pagination Controls */}
+        {organisms.length > 0 && (
+          <div className={`mt-8 sm:mt-10 p-3 sm:p-5 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4">
+              {/* Previous Button */}
+              <button
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                className={`flex-1 sm:flex-none px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
+                  currentPage === 1
+                    ? `${isDark ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`
+                    : `${isDark ? 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg' : 'bg-blue-500 hover:bg-blue-600 text-white hover:shadow-lg'}`
+                }`}
+              >
+                <i className="fas fa-chevron-left"></i>
+                <span className="hidden sm:inline">Previous</span>
+              </button>
+
+              {/* Page Info */}
+              <div className={`text-center ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                <p className="text-xs sm:text-sm font-semibold leading-tight">
+                  <span className="font-bold">{currentPage}</span> / <span className="font-bold">{totalPages}</span>
+                </p>
+                <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {startIndex + 1}-{Math.min(endIndex, organisms.length)} of {organisms.length}
+                </p>
+              </div>
+
+              {/* Next Button */}
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className={`flex-1 sm:flex-none px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-1 sm:gap-2 ${
+                  currentPage === totalPages
+                    ? `${isDark ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`
+                    : `${isDark ? 'bg-green-600 hover:bg-green-700 text-white hover:shadow-lg' : 'bg-green-500 hover:bg-green-600 text-white hover:shadow-lg'}`
+                }`}
+              >
+                <span className="hidden sm:inline">Next</span>
+                <i className="fas fa-chevron-right"></i>
+              </button>
+            </div>
+
+            {/* Page Navigation Dots */}
+            <div className="flex justify-center gap-1 sm:gap-2 mt-3 sm:mt-4 flex-wrap">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => {
+                    setCurrentPage(page);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className={`w-6 h-6 sm:w-8 sm:h-8 rounded font-semibold text-xs transition-all ${
+                    currentPage === page
+                      ? `${isDark ? 'bg-green-600 text-white shadow-lg' : 'bg-green-500 text-white shadow-lg'}`
+                      : `${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {organisms.length === 0 && (
           <div className={`text-center py-12 sm:py-16 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
             <div className="text-4xl mb-4">🔍</div>
@@ -3640,34 +3853,34 @@ const OrganismsPage = () => {
       </main>
 
       {/* Footer */}
-      <footer className={`${isDark ? 'bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700' : 'bg-gradient-to-b from-gray-900 to-gray-950 border-green-600'} text-white mt-10 sm:mt-12 border-t-4`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
+      <footer className={`${isDark ? 'bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700' : 'bg-gradient-to-b from-gray-900 to-gray-950 border-green-600'} text-white mt-6 sm:mt-8 border-t-4`}>
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="text-center sm:text-left">
               <h3 
-                className="text-lg sm:text-xl font-bold mb-2 sm:mb-3"
+                className="text-sm sm:text-base font-bold mb-1"
                 style={{
                   color: siteSettings?.secondary_color || '#4ade80'
                 }}
               >
                 {siteSettings?.website_name || 'BioMuseum'}
               </h3>
-              <p className={`text-xs sm:text-sm leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-300'}`}>
-                Discover the wonders of life science through our interactive biology museum.
+              <p className={`text-xs leading-tight ${isDark ? 'text-gray-400' : 'text-gray-300'}`}>
+                Life science exploration
               </p>
             </div>
             <div className="text-center sm:text-left">
-              <h4 className="text-sm sm:text-base font-semibold mb-2 sm:mb-3 text-green-400">Links</h4>
-              <ul className={`space-y-1 sm:space-y-2 text-xs sm:text-sm ${isDark ? 'text-gray-400' : 'text-gray-300'}`}>
-                <li><a href="/" className="hover:text-green-400 transition-colors flex items-center justify-center sm:justify-start gap-2"><i className="fas fa-home"></i><span>Home</span></a></li>
+              <h4 className="text-xs sm:text-sm font-semibold mb-1 text-green-400">Links</h4>
+              <ul className={`space-y-0.5 text-xs ${isDark ? 'text-gray-400' : 'text-gray-300'}`}>
+                <li><a href="/" className="hover:text-green-400 transition-colors flex items-center justify-center sm:justify-start gap-1"><i className="fas fa-home"></i><span className="hidden sm:inline">Home</span></a></li>
               </ul>
             </div>
             <div className="text-center sm:text-left">
-              <h4 className="text-sm sm:text-base font-semibold mb-2 sm:mb-3 text-green-400">Contact</h4>
-              <p className={`text-xs sm:text-sm ${isDark ? 'text-gray-400' : 'text-gray-300'}`}><i className="fas fa-envelope mr-2"></i><a href="mailto:sarthaknk07@outlook.com" className="hover:text-green-400">sarthaknk07@outlook.com</a></p>
+              <h4 className="text-xs sm:text-sm font-semibold mb-1 text-green-400">Contact</h4>
+              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-300'}`}><a href="mailto:sarthaknk07@outlook.com" className="hover:text-green-400">Email</a></p>
             </div>
           </div>
-          <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-700'} mt-6 sm:mt-8 pt-4 sm:pt-6 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'} text-xs sm:text-sm`}>
+          <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-700'} mt-2 sm:mt-3 pt-2 sm:pt-3 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'} text-xs`}>
             <p>© Made with 💚 @ Chh. Sambhaji Nagar</p>
           </div>
         </div>
