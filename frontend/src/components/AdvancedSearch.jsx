@@ -81,6 +81,65 @@ const AdvancedSearch = ({ isDark }) => {
           </p>
         </div>
 
+        {/* Premium Search Bar */}
+        <div className="mb-6 sm:mb-8 relative px-0 sm:px-0">
+          <div className="relative group">
+            <div className={`absolute inset-0 rounded-lg sm:rounded-xl transition-all duration-300 ${isDark ? 'bg-gradient-to-r from-gray-700 to-gray-600' : 'bg-gradient-to-r from-gray-200 to-gray-100'}`}></div>
+            <div className={`relative flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 rounded-lg sm:rounded-xl transition-all duration-300 border-2 ${isDark ? 'bg-gray-800 border-gray-600 hover:border-gray-500' : 'bg-white border-gray-300 hover:border-gray-400'}`}>
+              <i className={`fa-solid fa-magnifying-glass text-base sm:text-lg ${isDark ? 'text-gray-400' : 'text-gray-500'} flex-shrink-0`}></i>
+              <input
+                type="text"
+                placeholder="Search organisms..."
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                className={`flex-1 bg-transparent outline-none text-xs sm:text-sm transition-colors ${isDark ? 'text-white placeholder-gray-500 caret-gray-400' : 'text-gray-800 placeholder-gray-400 caret-gray-600'}`}
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSuggestions([]);
+                  }}
+                  className={`p-2 rounded-lg transition-colors flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center ${isDark ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'}`}
+                  aria-label="Clear search"
+                >
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              )}
+              <button
+                onClick={handleSearch}
+                className={`px-2.5 sm:px-4 py-2 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm flex-shrink-0 min-h-[44px] ${isDark ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                aria-label="Search"
+              >
+                <i className="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+
+            {/* Dropdown Suggestions */}
+            {suggestions.length > 0 && (
+              <div className={`absolute top-full left-0 right-0 mt-2 rounded-lg sm:rounded-xl shadow-2xl z-50 border max-h-60 sm:max-h-96 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                {suggestions.map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setSearchTerm(suggestion);
+                      setSuggestions([]);
+                      handleSearch();
+                    }}
+                    className={`w-full text-left px-3 sm:px-5 py-3 sm:py-4 transition-colors border-b last:border-b-0 flex items-center gap-2 sm:gap-3 group min-h-[44px] ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`}
+                  >
+                    <i className={`fa-solid fa-microscope flex-shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}></i>
+                    <p className={`font-semibold text-xs sm:text-sm truncate ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                      {suggestion}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Filters Sidebar */}
           <div className={`lg:col-span-1 ${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow-lg h-fit`}>
@@ -190,13 +249,13 @@ const AdvancedSearch = ({ isDark }) => {
             <div className="flex gap-2">
               <button
                 onClick={handleSearch}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-lg transition"
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1.5 px-3 text-sm rounded-lg transition"
               >
                 <i className="fa-solid fa-search mr-1"></i>Search
               </button>
               <button
                 onClick={clearFilters}
-                className={`flex-1 ${isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} font-semibold py-2 rounded-lg transition`}
+                className={`flex-1 ${isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} font-semibold py-1.5 px-3 text-sm rounded-lg transition`}
               >
                 Clear
               </button>

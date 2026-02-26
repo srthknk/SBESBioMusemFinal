@@ -3618,6 +3618,55 @@ const UsersHistoryTab = ({ token, isDark }) => {
 const ManageOrganisms = ({ organisms, token, isDark, onUpdate }) => {
   const [editingOrganism, setEditingOrganism] = useState(null);
   const [printOrganism, setPrintOrganism] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Search function to filter organisms from all fields
+  const getSearchSuggestions = (query) => {
+    if (!query.trim()) return [];
+    
+    const lowerQuery = query.toLowerCase();
+    return organisms
+      .filter(organism => {
+        const name = (organism.name || '').toLowerCase();
+        const scientificName = (organism.scientific_name || '').toLowerCase();
+        const description = (organism.description || '').toLowerCase();
+        const kingdom = (organism.classification?.kingdom || '').toLowerCase();
+        const phylum = (organism.classification?.phylum || '').toLowerCase();
+        const classType = (organism.classification?.class || '').toLowerCase();
+        const order = (organism.classification?.order || '').toLowerCase();
+        const family = (organism.classification?.family || '').toLowerCase();
+        const genus = (organism.classification?.genus || '').toLowerCase();
+        const species = (organism.classification?.species || '').toLowerCase();
+        const morphology = (organism.morphology || '').toLowerCase();
+        const physiology = (organism.physiology || '').toLowerCase();
+
+        return (
+          name.includes(lowerQuery) ||
+          scientificName.includes(lowerQuery) ||
+          description.includes(lowerQuery) ||
+          kingdom.includes(lowerQuery) ||
+          phylum.includes(lowerQuery) ||
+          classType.includes(lowerQuery) ||
+          order.includes(lowerQuery) ||
+          family.includes(lowerQuery) ||
+          genus.includes(lowerQuery) ||
+          species.includes(lowerQuery) ||
+          morphology.includes(lowerQuery) ||
+          physiology.includes(lowerQuery)
+        );
+      })
+      .slice(0, 8);
+  };
+
+  const filteredOrganisms = searchTerm.trim() 
+    ? getSearchSuggestions(searchTerm) 
+    : organisms;
+
+  const handleSelectSuggestion = (organism) => {
+    setSearchTerm('');
+    setShowSuggestions(false);
+  };
 
   const handleDelete = async (organismId, organismName) => {
     if (window.confirm(`Are you sure you want to delete "${organismName}"? This action cannot be undone.`)) {
@@ -3653,8 +3702,89 @@ const ManageOrganisms = ({ organisms, token, isDark, onUpdate }) => {
     <div>
       <h2 className={`text-2xl sm:text-3xl font-semibold mb-6 ${isDark ? 'text-white' : 'text-gray-800'}`}>📝 Manage Organisms</h2>
       
+      {/* Premium Search Bar */}
+      <div className="mb-6 sm:mb-8 relative px-0 sm:px-0">
+        <div className="relative group">
+          <div className={`absolute inset-0 rounded-lg sm:rounded-xl transition-all duration-300 ${isDark ? 'bg-gradient-to-r from-gray-700 to-gray-600' : 'bg-gradient-to-r from-gray-200 to-gray-100'}`}></div>
+          <div className={`relative flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 rounded-lg sm:rounded-xl transition-all duration-300 border-2 ${isDark ? 'bg-gray-800 border-gray-600 hover:border-gray-500' : 'bg-white border-gray-300 hover:border-gray-400'}`}>
+            <i className={`fa-solid fa-magnifying-glass text-base sm:text-lg ${isDark ? 'text-gray-400' : 'text-gray-500'} flex-shrink-0`}></i>
+            <input
+              type="text"
+              placeholder="Search organisms..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              className={`flex-1 bg-transparent outline-none text-xs sm:text-sm transition-colors ${isDark ? 'text-white placeholder-gray-500 caret-gray-400' : 'text-gray-800 placeholder-gray-400 caret-gray-600'}`}
+            />
+            {searchTerm && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setShowSuggestions(false);
+                }}
+                className={`p-2 rounded-lg transition-colors flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center ${isDark ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'}`}
+                aria-label="Clear search"
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            )}
+          </div>
+
+          {/* Dropdown Suggestions */}
+          {showSuggestions && searchTerm.trim() && getSearchSuggestions(searchTerm).length > 0 && (
+            <div className={`absolute top-full left-0 right-0 mt-2 rounded-lg sm:rounded-xl shadow-2xl z-50 border max-h-60 sm:max-h-96 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              {getSearchSuggestions(searchTerm).map((suggestion) => (
+                <button
+                  key={suggestion.id}
+                  onClick={() => handleSelectSuggestion(suggestion)}
+                  className={`w-full text-left px-3 sm:px-5 py-3 sm:py-4 transition-colors border-b last:border-b-0 flex items-center gap-2 sm:gap-3 group hover:bg-opacity-80 min-h-[44px] ${
+                    isDark 
+                      ? 'border-gray-700 hover:bg-gray-700' 
+                      : 'border-gray-100 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className={`flex-1 min-w-0`}>
+                    <p className={`font-semibold text-xs sm:text-sm truncate ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                      {suggestion.name}
+                    </p>
+                    <p className={`text-xs italic truncate ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {suggestion.scientific_name}
+                    </p>
+                    {suggestion.classification && (
+                      <div className="flex gap-2 mt-1 flex-wrap">
+                        {suggestion.classification.kingdom && (
+                          <span className={`text-xs px-2 py-0.5 rounded ${isDark ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
+                            {suggestion.classification.kingdom}
+                          </span>
+                        )}
+                        {suggestion.classification.phylum && (
+                          <span className={`text-xs px-2 py-0.5 rounded ${isDark ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
+                            {suggestion.classification.phylum}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {showSuggestions && searchTerm.trim() && getSearchSuggestions(searchTerm).length === 0 && (
+            <div className={`absolute top-full left-0 right-0 mt-2 rounded-lg sm:rounded-xl shadow-2xl z-50 border p-3 sm:p-4 text-center ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <p className={`text-xs sm:text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                No organisms found matching "<span className="font-semibold">{searchTerm}</span>"
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+      
       <div className="space-y-3 sm:space-y-4">
-        {organisms.map((organism) => (
+        {filteredOrganisms.map((organism) => (
           <div key={organism.id} className={`rounded-lg p-3 sm:p-6 transition-all ${isDark ? 'bg-gray-800 border border-gray-700 hover:border-purple-500' : 'bg-white border border-gray-200 hover:shadow-lg'}`}>
             <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
               <div className="flex-1 min-w-0 w-full sm:w-auto">
@@ -3713,10 +3843,14 @@ const ManageOrganisms = ({ organisms, token, isDark, onUpdate }) => {
           </div>
         ))}
         
-        {organisms.length === 0 && (
+        {filteredOrganisms.length === 0 && (
           <div className={`text-center py-12 rounded-lg ${isDark ? 'bg-gray-800 border border-gray-700' : 'bg-gray-50 border border-gray-200'}`}>
-            <p className={`text-base sm:text-lg font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>No organisms found.</p>
-            <p className={`text-xs sm:text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Add your first organism using the "Add Organism" tab.</p>
+            <p className={`text-base sm:text-lg font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+              {searchTerm.trim() ? 'No organisms found.' : 'No organisms found.'}
+            </p>
+            <p className={`text-xs sm:text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              {searchTerm.trim() ? 'Try searching with different keywords.' : 'Add your first organism using the "Add Organism" tab.'}
+            </p>
           </div>
         )}
       </div>
@@ -4121,6 +4255,9 @@ const OrganismsPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedKingdom, setSelectedKingdom] = useState('');
   const [selectedPhylum, setSelectedPhylum] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
   const navigate = useNavigate();
@@ -4143,21 +4280,57 @@ const OrganismsPage = () => {
     }
   };
 
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    setShowSuggestions(true);
+    
+    if (value.trim().length > 0) {
+      const lowerQuery = value.toLowerCase();
+      const filtered = allOrganisms
+        .filter(org => {
+          const name = (org.name || '').toLowerCase();
+          const scientificName = (org.scientific_name || '').toLowerCase();
+          const description = (org.description || '').toLowerCase();
+          const kingdom = (org.classification?.kingdom || '').toLowerCase();
+          const phylum = (org.classification?.phylum || '').toLowerCase();
+          
+          return (
+            name.includes(lowerQuery) ||
+            scientificName.includes(lowerQuery) ||
+            description.includes(lowerQuery) ||
+            kingdom.includes(lowerQuery) ||
+            phylum.includes(lowerQuery)
+          );
+        })
+        .slice(0, 8);
+      
+      setSuggestions(filtered);
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  const handleSelectSuggestion = (organism) => {
+    setSearchTerm('');
+    setShowSuggestions(false);
+    setSuggestions([]);
+  };
+
   const handleKingdomChange = (e) => {
     const kingdom = e.target.value;
     setSelectedKingdom(kingdom);
     setCurrentPage(1);
-    filterOrganisms(kingdom, selectedPhylum);
+    filterOrganisms(kingdom, selectedPhylum, searchTerm);
   };
 
   const handlePhylumChange = (e) => {
     const phylum = e.target.value;
     setSelectedPhylum(phylum);
     setCurrentPage(1);
-    filterOrganisms(selectedKingdom, phylum);
+    filterOrganisms(selectedKingdom, phylum, searchTerm);
   };
 
-  const filterOrganisms = (kingdom, phylum) => {
+  const filterOrganisms = (kingdom, phylum, search) => {
     let filtered = allOrganisms;
     
     if (kingdom) {
@@ -4166,6 +4339,25 @@ const OrganismsPage = () => {
     
     if (phylum) {
       filtered = filtered.filter(org => org.classification?.phylum === phylum);
+    }
+
+    if (search.trim()) {
+      const lowerSearch = search.toLowerCase();
+      filtered = filtered.filter(org => {
+        const name = (org.name || '').toLowerCase();
+        const scientificName = (org.scientific_name || '').toLowerCase();
+        const description = (org.description || '').toLowerCase();
+        const kingdom = (org.classification?.kingdom || '').toLowerCase();
+        const phylum = (org.classification?.phylum || '').toLowerCase();
+        
+        return (
+          name.includes(lowerSearch) ||
+          scientificName.includes(lowerSearch) ||
+          description.includes(lowerSearch) ||
+          kingdom.includes(lowerSearch) ||
+          phylum.includes(lowerSearch)
+        );
+      });
     }
     
     setOrganisms(filtered);
@@ -4262,6 +4454,76 @@ const OrganismsPage = () => {
           <i className="fas fa-binoculars mr-2 text-green-600"></i>Explore Organisms
         </h2>
 
+        {/* Premium Search Bar */}
+      <div className="mb-6 sm:mb-8 relative px-0 sm:px-0">
+        <div className="relative group">
+          <div className={`absolute inset-0 rounded-lg sm:rounded-xl transition-all duration-300 ${isDark ? 'bg-gradient-to-r from-gray-700 to-gray-600' : 'bg-gradient-to-r from-gray-200 to-gray-100'}`}></div>
+          <div className={`relative flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 rounded-lg sm:rounded-xl transition-all duration-300 border-2 ${isDark ? 'bg-gray-800 border-gray-600 hover:border-gray-500' : 'bg-white border-gray-300 hover:border-gray-400'}`}>
+            <i className={`fa-solid fa-magnifying-glass text-base sm:text-lg ${isDark ? 'text-gray-400' : 'text-gray-500'} flex-shrink-0`}></i>
+            <input
+              type="text"
+              placeholder="Search organisms..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onFocus={() => setShowSuggestions(true)}
+              className={`flex-1 bg-transparent outline-none text-xs sm:text-sm transition-colors ${isDark ? 'text-white placeholder-gray-500 caret-gray-400' : 'text-gray-800 placeholder-gray-400 caret-gray-600'}`}
+            />
+            {searchTerm && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setShowSuggestions(false);
+                  setSuggestions([]);
+                  filterOrganisms(selectedKingdom, selectedPhylum, '');
+                }}
+                className={`p-2 rounded-lg transition-colors flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center ${isDark ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'}`}
+                aria-label="Clear search"
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            )}
+          </div>
+
+          {/* Dropdown Suggestions */}
+          {showSuggestions && searchTerm.trim() && suggestions.length > 0 && (
+            <div className={`absolute top-full left-0 right-0 mt-2 rounded-lg sm:rounded-xl shadow-2xl z-50 border max-h-60 sm:max-h-96 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              {suggestions.map((suggestion) => (
+                <button
+                  key={suggestion.id}
+                  onClick={() => {
+                    setSearchTerm(suggestion.name);
+                    setShowSuggestions(false);
+                    setSuggestions([]);
+                    filterOrganisms(selectedKingdom, selectedPhylum, suggestion.name);
+                  }}
+                  className={`w-full text-left px-3 sm:px-5 py-3 sm:py-4 transition-colors border-b last:border-b-0 flex items-center gap-2 sm:gap-3 min-h-[44px] ${
+                    isDark 
+                      ? 'border-gray-700 hover:bg-gray-700' 
+                      : 'border-gray-100 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className={`flex-1 min-w-0`}>
+                    <p className={`font-semibold text-xs sm:text-sm truncate ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                      {suggestion.name}
+                    </p>
+                    <p className={`text-xs italic truncate ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {suggestion.scientific_name}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {showSuggestions && searchTerm.trim() && suggestions.length === 0 && (
+            <div className={`absolute top-full left-0 right-0 mt-2 rounded-lg sm:rounded-xl shadow-2xl z-50 border p-3 sm:p-4 text-center ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <p className={`text-xs sm:text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Filter Section */}
         <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-xl shadow-md border-l-4 border-green-600 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
@@ -4273,7 +4535,7 @@ const OrganismsPage = () => {
               <select
                 value={selectedKingdom}
                 onChange={handleKingdomChange}
-                className={`w-full px-3 sm:px-4 py-2 rounded-lg focus:outline-none transition-all text-sm sm:text-base border-2 ${isDark ? 'bg-gray-700 border-gray-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-900' : 'border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200'}`}
+                className={`w-full px-3 sm:px-4 py-1.5 rounded-lg focus:outline-none transition-all text-sm sm:text-base border-2 ${isDark ? 'bg-gray-700 border-gray-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-900' : 'border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200'}`}
               >
                 <option value="">All Kingdoms</option>
                 {getUniqueKingdoms().map(kingdom => (
@@ -4290,7 +4552,7 @@ const OrganismsPage = () => {
               <select
                 value={selectedPhylum}
                 onChange={handlePhylumChange}
-                className={`w-full px-3 sm:px-4 py-2 rounded-lg focus:outline-none transition-all text-sm sm:text-base border-2 ${isDark ? 'bg-gray-700 border-gray-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-900' : 'border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200'}`}
+                className={`w-full px-3 sm:px-4 py-1.5 rounded-lg focus:outline-none transition-all text-sm sm:text-base border-2 ${isDark ? 'bg-gray-700 border-gray-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-900' : 'border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200'}`}
               >
                 <option value="">All Phyla</option>
                 {getUniquePhyla().map(phylum => (
