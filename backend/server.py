@@ -72,10 +72,11 @@ site_settings_collection = None
 admins_collection = None
 admin_sessions_collection = None
 maintenance_controls = None
+visitors_collection = None
 mongodb_connected = False
 
 async def init_mongodb():
-    global db, organisms_collection, suggestions_collection, biotube_videos_collection, video_suggestions_collection, video_comments_collection, blogs_collection, blog_suggestions_collection, gmail_users_collection, site_settings_collection, admins_collection, admin_sessions_collection, maintenance_controls, mongodb_connected
+    global db, organisms_collection, suggestions_collection, biotube_videos_collection, video_suggestions_collection, video_comments_collection, blogs_collection, blog_suggestions_collection, gmail_users_collection, site_settings_collection, admins_collection, admin_sessions_collection, maintenance_controls, visitors_collection, mongodb_connected
     max_retries = 15  # Increased from 10 to 15
     retry_count = 0
     
@@ -128,6 +129,7 @@ async def init_mongodb():
             admins_collection = db.admins
             admin_sessions_collection = db.admin_sessions
             maintenance_controls = db.maintenance_controls
+            visitors_collection = db.visitors
             
             # Test that we can actually query
             test_count = await organisms_collection.count_documents({})
@@ -179,8 +181,15 @@ async def init_mongodb():
                 # Create sparse unique index on email (allows multiple null values)
                 await admins_collection.create_index("email", unique=True, sparse=True)
                 print("[OK] ✓ Created sparse unique index on admins.email field")
+                
+                # Create indexes for visitors collection
+                await visitors_collection.create_index("device_id")
+                await visitors_collection.create_index("timestamp")
+                await visitors_collection.create_index("country")
+                await visitors_collection.create_index([("timestamp", DESCENDING)])
+                print("[OK] ✓ Created indexes on visitors collection")
             except Exception as e:
-                print(f"[WARN] Failed to create index on email: {str(e)[:100]}")
+                print(f"[WARN] Failed to create indexes: {str(e)[:100]}")
             # ==================== END INDEXES ====================
             
             return
@@ -3639,6 +3648,448 @@ async def delete_client(client_id: str, _: bool = Depends(verify_admin_token)):
         logging.error(f"Error deleting client {client_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ==================== VISITOR TRACKING ENDPOINTS ====================
+
+class VisitorData(BaseModel):
+    """Model for tracking visitor data"""
+    device_id: str
+    device_type: str  # Mobile, Tablet, Desktop
+    phone_model: Optional[str] = None
+    os: str  # Android, iOS, Windows, macOS, Linux
+    browser: str
+    browser_version: str
+    ip_address: str
+    country: Optional[str] = None
+    city: Optional[str] = None
+    page_url: str
+    page_title: str
+    referrer: Optional[str] = None
+    session_id: str
+    user_agent: str
+    timestamp: str = Field(default_factory=get_ist_now)
+    session_duration: int = 0  # in seconds
+    actions_count: int = 0
+
+@api_router.post("/track/visitor")
+async def track_visitor(visitor_data: VisitorData):
+    """Track visitor data on page visit"""
+    try:
+        # Check if visitor device already exists
+        existing_visitor = await visitors_collection.find_one({"device_id": visitor_data.device_id})
+        
+        visitor_doc = visitor_data.dict()
+        visitor_doc["created_at"] = get_ist_now()
+        visitor_doc["last_seen"] = get_ist_now()
+        visitor_doc["visit_count"] = 1 if not existing_visitor else (existing_visitor.get("visit_count", 0) + 1)
+        visitor_doc["pages_visited"] = [visitor_data.page_url]
+        visitor_doc["is_new"] = not existing_visitor
+        
+        if existing_visitor:
+            # Update existing visitor
+            pages = existing_visitor.get("pages_visited", [])
+            if visitor_data.page_url not in pages:
+                pages.append(visitor_data.page_url)
+            
+            await visitors_collection.update_one(
+                {"device_id": visitor_data.device_id},
+                {
+                    "$set": {
+                        "last_seen": get_ist_now(),
+                        "visit_count": visitor_doc["visit_count"],
+                        "pages_visited": pages,
+                        "page_url": visitor_data.page_url,
+                        "page_title": visitor_data.page_title
+                    },
+                    "$inc": {"actions_count": 1}
+                }
+            )
+        else:
+            # Insert new visitor
+            await visitors_collection.insert_one(visitor_doc)
+        
+        return {
+            "success": True,
+            "message": "Visitor tracked successfully",
+            "visitor_id": visitor_data.device_id
+        }
+    except Exception as e:
+        logging.error(f"Error tracking visitor: {e}")
+        # Don't fail the page load - tracking is non-critical
+        return {"success": False, "message": str(e)}
+
+@api_router.get("/admin/visitors/dashboard")
+async def get_visitors_dashboard(_: bool = Depends(verify_admin_token)):
+    """Get visitor dashboard statistics"""
+    try:
+        total_visitors = await visitors_collection.count_documents({})
+        
+        # Get new visitors (last 24 hours)
+        from datetime import timedelta
+        yesterday = datetime.now(IST) - timedelta(days=1)
+        new_visitors = await visitors_collection.count_documents({
+            "created_at": {"$gte": yesterday.isoformat()}
+        })
+        
+        # Get returning visitors
+        returning_visitors = await visitors_collection.count_documents({
+            "visit_count": {"$gt": 1}
+        })
+        
+        # Get device distribution
+        device_dist = await visitors_collection.aggregate([
+            {"$group": {"_id": "$device_type", "count": {"$sum": 1}}}
+        ]).to_list(10)
+        
+        # Get top countries
+        top_countries = await visitors_collection.aggregate([
+            {"$group": {"_id": "$country", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]).to_list(10)
+        
+        # Get top pages
+        top_pages = await visitors_collection.aggregate([
+            {"$group": {"_id": "$page_title", "count": {"$sum": 1}, "url": {"$first": "$page_url"}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]).to_list(10)
+        
+        # Calculate unique visitors today
+        today = datetime.now(IST).replace(hour=0, minute=0, second=0, microsecond=0)
+        today_visitors = await visitors_collection.count_documents({
+            "last_seen": {"$gte": today.isoformat()}
+        })
+        
+        # Get bounce rate (single page visits)
+        single_page_visitors = await visitors_collection.count_documents({
+            "pages_visited": {"$size": 1}
+        })
+        bounce_rate = (single_page_visitors / max(1, total_visitors)) * 100 if total_visitors > 0 else 0
+        
+        return {
+            "total_visitors": total_visitors,
+            "new_visitors_24h": new_visitors,
+            "returning_visitors": returning_visitors,
+            "today_visitors": today_visitors,
+            "bounce_rate": round(bounce_rate, 2),
+            "device_distribution": [{"name": d["_id"], "count": d["count"]} for d in device_dist],
+            "top_countries": [{"name": c["_id"] or "Unknown", "count": c["count"]} for c in top_countries],
+            "top_pages": [{"title": p["_id"], "url": p["url"], "count": p["count"]} for p in top_pages]
+        }
+    except Exception as e:
+        logging.error(f"Error getting visitor dashboard: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/visitors/list")
+async def get_visitors_list(
+    limit: int = Query(50, le=100),
+    skip: int = Query(0),
+    _: bool = Depends(verify_admin_token)
+):
+    """Get list of all visitors"""
+    try:
+        visitors = await visitors_collection.find().sort("last_seen", -1).skip(skip).limit(limit).to_list(limit)
+        
+        for visitor in visitors:
+            visitor.pop("_id", None)
+        
+        total = await visitors_collection.count_documents({})
+        
+        return {
+            "success": True,
+            "total": total,
+            "count": len(visitors),
+            "visitors": visitors
+        }
+    except Exception as e:
+        logging.error(f"Error getting visitors list: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/visitors/real-time")
+async def get_realtime_visitors(_: bool = Depends(verify_admin_token)):
+    """Get real-time visitor monitoring data"""
+    try:
+        from datetime import timedelta
+        
+        # Visitors in last 5 minutes
+        five_min_ago = datetime.now(IST) - timedelta(minutes=5)
+        active_visitors = await visitors_collection.find({
+            "last_seen": {"$gte": five_min_ago.isoformat()}
+        }).sort("last_seen", -1).limit(20).to_list(20)
+        
+        for visitor in active_visitors:
+            visitor.pop("_id", None)
+        
+        # Get current page views
+        current_page_views = await visitors_collection.aggregate([
+            {"$group": {"_id": "$page_title", "count": {"$sum": 1}, "url": {"$first": "$page_url"}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ]).to_list(5)
+        
+        # Count visitors in different time windows
+        hour_ago = datetime.now(IST) - timedelta(hours=1)
+        day_ago = datetime.now(IST) - timedelta(days=1)
+        
+        visitors_last_hour = await visitors_collection.count_documents({
+            "last_seen": {"$gte": hour_ago.isoformat()}
+        })
+        
+        visitors_last_day = await visitors_collection.count_documents({
+            "last_seen": {"$gte": day_ago.isoformat()}
+        })
+        
+        return {
+            "active_now": len(active_visitors),
+            "last_hour": visitors_last_hour,
+            "last_day": visitors_last_day,
+            "recent_visitors": active_visitors,
+            "current_page_views": [{
+                "page": p["_id"],
+                "url": p["url"],
+                "viewers": p["count"]
+            } for p in current_page_views]
+        }
+    except Exception as e:
+        logging.error(f"Error getting realtime visitors: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/visitors/analytics")
+async def get_visitor_analytics(
+    days: int = Query(7, le=90),
+    _: bool = Depends(verify_admin_token)
+):
+    """Get visitor analytics for specified period"""
+    try:
+        from datetime import timedelta
+        
+        cutoff_date = datetime.now(IST) - timedelta(days=days)
+        
+        # Daily visitor counts
+        daily_stats = await visitors_collection.aggregate([
+            {
+                "$match": {
+                    "created_at": {"$gte": cutoff_date.isoformat()}
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d",
+                            "date": {
+                                "$dateFromString": {
+                                    "dateString": "$created_at"
+                                }
+                            }
+                        }
+                    },
+                    "count": {"$sum": 1},
+                    "returning": {
+                        "$sum": {
+                            "$cond": [{"$gt": ["$visit_count", 1]}, 1, 0]
+                        }
+                    }
+                }
+            },
+            {"$sort": {"_id": 1}}
+        ]).to_list(None)
+        
+        # Browser distribution
+        browser_dist = await visitors_collection.aggregate([
+            {"$group": {"_id": "$browser", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]).to_list(10)
+        
+        # OS distribution
+        os_dist = await visitors_collection.aggregate([
+            {"$group": {"_id": "$os", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]).to_list(10)
+        
+        return {
+            "period_days": days,
+            "daily_stats": daily_stats,
+            "browser_distribution": [{"name": b["_id"], "count": b["count"]} for b in browser_dist],
+            "os_distribution": [{"name": o["_id"], "count": o["count"]} for o in os_dist]
+        }
+    except Exception as e:
+        logging.error(f"Error getting visitor analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/visitors/behavior")
+async def get_visitor_behavior(_: bool = Depends(verify_admin_token)):
+    """Get visitor behavior analytics"""
+    try:
+        # Most visited pages
+        top_visited_pages = await visitors_collection.aggregate([
+            {"$unwind": "$pages_visited"},
+            {"$group": {"_id": "$pages_visited", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 15}
+        ]).to_list(15)
+        
+        # Average pages per session
+        session_stats = await visitors_collection.aggregate([
+            {
+                "$group": {
+                    "_id": None,
+                    "avg_pages": {
+                        "$avg": {
+                            "$size": "$pages_visited"
+                        }
+                    },
+                    "avg_actions": {"$avg": "$actions_count"},
+                    "avg_session_duration": {"$avg": "$session_duration"}
+                }
+            }
+        ]).to_list(1)
+        
+        # Top referrers
+        top_referrers = await visitors_collection.aggregate([
+            {"$match": {"referrer": {"$ne": None, "$ne": ""}}},
+            {"$group": {"_id": "$referrer", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]).to_list(10)
+        
+        avg_session = session_stats[0] if session_stats else {
+            "avg_pages": 0,
+            "avg_actions": 0,
+            "avg_session_duration": 0
+        }
+        
+        return {
+            "top_visited_pages": [{"url": p["_id"], "views": p["count"]} for p in top_visited_pages],
+            "avg_pages_per_session": round(avg_session.get("avg_pages", 0), 2),
+            "avg_actions_per_session": round(avg_session.get("avg_actions", 0), 2),
+            "avg_session_duration": round(avg_session.get("avg_session_duration", 0), 2),
+            "top_referrers": [{"referrer": ref["_id"], "count": ref["count"]} for ref in top_referrers]
+        }
+    except Exception as e:
+        logging.error(f"Error getting visitor behavior: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/visitors/engagement")
+async def get_engagement_metrics(_: bool = Depends(verify_admin_token)):
+    """Get visitor engagement metrics"""
+    try:
+        # Visitor segments
+        high_engagement = await visitors_collection.count_documents({
+            "actions_count": {"$gte": 10}
+        })
+        
+        medium_engagement = await visitors_collection.count_documents({
+            "actions_count": {"$gte": 5, "$lt": 10}
+        })
+        
+        low_engagement = await visitors_collection.count_documents({
+            "actions_count": {"$lt": 5}
+        })
+        
+        # Calculate engagement scores
+        total_visitors = await visitors_collection.count_documents({})
+        
+        return {
+            "high_engagement": {
+                "count": high_engagement,
+                "percentage": round((high_engagement / max(1, total_visitors)) * 100, 2)
+            },
+            "medium_engagement": {
+                "count": medium_engagement,
+                "percentage": round((medium_engagement / max(1, total_visitors)) * 100, 2)
+            },
+            "low_engagement": {
+                "count": low_engagement,
+                "percentage": round((low_engagement / max(1, total_visitors)) * 100, 2)
+            },
+            "total_interactions": await visitors_collection.aggregate([
+                {"$group": {"_id": None, "total": {"$sum": "$actions_count"}}}
+            ]).to_list(1)
+        }
+    except Exception as e:
+        logging.error(f"Error getting engagement metrics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/visitors/performance")
+async def get_performance_insights(_: bool = Depends(verify_admin_token)):
+    """Get visitor performance insights"""
+    try:
+        from datetime import timedelta
+        
+        # Performance by device type
+        device_perf = await visitors_collection.aggregate([
+            {
+                "$group": {
+                    "_id": "$device_type",
+                    "avg_session_duration": {"$avg": "$session_duration"},
+                    "avg_actions": {"$avg": "$actions_count"},
+                    "bounce_rate": {
+                        "$avg": {
+                            "$cond": [
+                                {"$eq": [{"$size": "$pages_visited"}, 1]},
+                                1,
+                                0
+                            ]
+                        }
+                    },
+                    "count": {"$sum": 1}
+                }
+            },
+            {"$sort": {"count": -1}}
+        ]).to_list(10)
+        
+        # Peak hours
+        peak_hours = await visitors_collection.aggregate([
+            {
+                "$group": {
+                    "_id": {
+                        "$hour": {
+                            "$dateFromString": {
+                                "dateString": "$last_seen"
+                            }
+                        }
+                    },
+                    "count": {"$sum": 1}
+                }
+            },
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ]).to_list(5)
+        
+        # Visitor retention (return rate)
+        week_ago = datetime.now(IST) - timedelta(days=7)
+        visitors_week_ago = await visitors_collection.find({
+            "created_at": {
+                "$gte": week_ago.isoformat(),
+                "$lt": datetime.now(IST).isoformat()
+            }
+        }).to_list(None)
+        
+        returning_count = sum(1 for v in visitors_week_ago if v.get("visit_count", 1) > 1)
+        retention_rate = (returning_count / max(1, len(visitors_week_ago))) * 100 if visitors_week_ago else 0
+        
+        return {
+            "device_performance": [{
+                "device_type": d["_id"],
+                "avg_session_duration_seconds": round(d["avg_session_duration"], 2),
+                "avg_actions": round(d["avg_actions"], 2),
+                "bounce_rate_percent": round(d["bounce_rate"] * 100, 2),
+                "visitor_count": d["count"]
+            } for d in device_perf],
+            "peak_hours": [{"hour": p["_id"], "visitors": p["count"]} for p in peak_hours],
+            "weekly_retention_rate": round(retention_rate, 2),
+            "total_actions": await visitors_collection.aggregate([
+                {"$group": {"_id": None, "total": {"$sum": "$actions_count"}}}
+            ]).to_list(1)
+        }
+    except Exception as e:
+        logging.error(f"Error getting performance insights: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== END VISITOR TRACKING ENDPOINTS ====================
 
 app.include_router(api_router)
 

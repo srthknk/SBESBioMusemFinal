@@ -16,11 +16,13 @@ import BlogAdminPanel from './components/BlogAdminPanel';
 import PersonalizationAdminPanel from './components/PersonalizationAdminPanel';
 import AdminUsersAdminPanel from './components/AdminUsersAdminPanel';
 import MaintenanceAdminPanel from './components/MaintenanceAdminPanel';
+import VisitorsAdminPanel from './components/VisitorsAdminPanel';
 import BioMuseumAIChatbot from './components/BioMuseumAIChatbot';
 import MaintenancePopup from './components/MaintenancePopup';
 import { AuthProvider } from './context/AuthContext';
 import { SiteProvider, SiteContext } from './contexts/SiteContext';
 import { formatDateIST } from './utils/dateFormatter';
+import { initializeVisitorTracking } from './services/visitorTracker';
 import "./App.css";
 
 // Determine backend URL based on current location
@@ -1726,6 +1728,18 @@ const AdminPanel = () => {
             >
               <i className="fa-solid fa-users-gear text-xs"></i> Admin Users
             </button>
+            <button
+              onClick={() => setActiveView('visitors')}
+              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'visitors' 
+                ? `border-b-2 text-white` 
+                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
+              style={activeView === 'visitors' ? {
+                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
+                color: siteSettings?.primary_color || '#7c3aed'
+              } : {}}
+            >
+              <i className="fa-solid fa-users mr-1"></i> Visitors
+            </button>
           </div>
 
           {/* Mobile Menu */}
@@ -1790,6 +1804,12 @@ const AdminPanel = () => {
                 className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'admin-users' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
               >
                 <i className="fa-solid fa-users-gear mr-2"></i>Admin Users
+              </button>
+              <button
+                onClick={() => { setActiveView('visitors'); setMobileMenuOpen(false); }}
+                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'visitors' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
+              >
+                <i className="fa-solid fa-users mr-2"></i>Visitors
               </button>
               <button
                 onClick={() => { navigate('/'); setMobileMenuOpen(false); }}
@@ -1867,6 +1887,12 @@ const AdminPanel = () => {
         )}
         {activeView === 'admin-users' && (
           <AdminUsersAdminPanel
+            token={token}
+            isDark={isDark}
+          />
+        )}
+        {activeView === 'visitors' && (
+          <VisitorsAdminPanel
             token={token}
             isDark={isDark}
           />
@@ -4753,6 +4779,11 @@ const MaintenanceAdminPanelWrapper = () => {
 
 function App() {
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
+
+  // Initialize visitor tracking on app load
+  useEffect(() => {
+    initializeVisitorTracking();
+  }, []);
 
   return (
     <GoogleOAuthProvider clientId={googleClientId}>

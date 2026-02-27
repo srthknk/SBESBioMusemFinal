@@ -223,12 +223,81 @@ const PrivacyPolicy = ({ isDark }) => {
             </p>
           </section>
 
+          {/* Visitor Analytics and Tracking */}
+          <section className="mb-8 sm:mb-10">
+            <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
+              isDark ? 'text-blue-400' : 'text-blue-600'
+            }`}>
+              8. Visitor Analytics and Tracking
+            </h3>
+            <p className={`text-sm sm:text-base leading-relaxed mb-3 ${
+              isDark ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              We collect aggregated visitor data to understand user behavior, improve website performance, and enhance user experience. This data is used exclusively for internal administrative and analytical purposes through our Visitors Analytics Dashboard.
+            </p>
+            
+            <div className={`bg-gray-800 border border-gray-700 rounded-lg p-4 sm:p-6 mb-4`}>
+              <h4 className={`font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                <i className="fa-solid fa-database mr-2" style={{color: '#8b5cf6'}}></i>
+                Data Collected for Analytics
+              </h4>
+              <ul className={`list-disc list-inside space-y-2 text-sm sm:text-base ${isDark ? 'text-gray-300' : 'text-gray-700'} ml-2`}>
+                <li><strong>Device Information:</strong> Device type (Mobile, Tablet, Desktop), phone model, operating system, browser type and version</li>
+                <li><strong>Unique Device Identifier:</strong> Device fingerprint created from browser characteristics (not personally identifiable)</li>
+                <li><strong>Geographic Data:</strong> Country and city derived from IP address for traffic distribution analysis</li>
+                <li><strong>Session Data:</strong> Session ID, visit duration, session start time, and number of actions performed</li>
+                <li><strong>Page Metadata:</strong> Pages visited, page titles, URLs accessed, and referrer information</li>
+                <li><strong>Interaction Metrics:</strong> Click counts, form submissions, search actions, and other user interactions</li>
+                <li><strong>Timestamp:</strong> Date and time of visit in Indian Standard Time (IST)</li>
+              </ul>
+            </div>
+
+            <div className={`bg-gray-800 border border-gray-700 rounded-lg p-4 sm:p-6 mb-4`}>
+              <h4 className={`font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                <i className="fa-solid fa-chart-line mr-2" style={{color: '#3b82f6'}}></i>
+                How Analytics Data is Used
+              </h4>
+              <ul className={`list-disc list-inside space-y-2 text-sm sm:text-base ${isDark ? 'text-gray-300' : 'text-gray-700'} ml-2`}>
+                <li>Measuring website traffic and visitor engagement patterns</li>
+                <li>Identifying popular content and user preferences</li>
+                <li>Monitoring website performance and load times across devices</li>
+                <li>Understanding user behavior flows and navigation patterns</li>
+                <li>Improving website functionality and user experience</li>
+                <li>Detecting technical issues and optimizing site features</li>
+                <li>Analyzing visitor demographics and regional distribution</li>
+                <li>Measuring real-time visitor activity and engagement levels</li>
+              </ul>
+            </div>
+
+            <div className={`bg-gray-800 border border-gray-700 rounded-lg p-4 sm:p-6`}>
+              <h4 className={`font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                <i className="fa-solid fa-shield-heart mr-2" style={{color: '#10b981'}}></i>
+                Privacy Safeguards
+              </h4>
+              <ul className={`list-disc list-inside space-y-2 text-sm sm:text-base ${isDark ? 'text-gray-300' : 'text-gray-700'} ml-2`}>
+                <li><strong>No Personal Identification:</strong> Device fingerprints are anonymized and cannot be traced to individuals</li>
+                <li><strong>Aggregated Analysis:</strong> Data is primarily analyzed in aggregate form to protect individual privacy</li>
+                <li><strong>Admin-Only Access:</strong> Visitor data is accessible only to authorized administrators through secured authentication</li>
+                <li><strong>Secure Storage:</strong> All analytics data is encrypted and stored securely in MongoDB</li>
+                <li><strong>No Third-Party Sharing:</strong> Visitor analytics data is not shared with external advertising networks or third parties</li>
+                <li><strong>Session Isolation:</strong> Each visitor session is isolated and independently tracked</li>
+                <li><strong>Data Protection:</strong> Industry-standard HTTPS encryption protects data transmission</li>
+              </ul>
+            </div>
+
+            <p className={`text-sm sm:text-base leading-relaxed mt-4 ${
+              isDark ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              If you prefer not to have your visitor data tracked, you can use privacy-focused browser extensions or privacy mode in your browser, though this may limit some functionality of the website.
+            </p>
+          </section>
+
           {/* User Rights */}
           <section className="mb-8 sm:mb-10">
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              8. Your Rights 
+              9. Your Rights 
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed mb-3 ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -252,7 +321,7 @@ const PrivacyPolicy = ({ isDark }) => {
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              9. Third-Party Services
+              10. Third-Party Services
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -279,7 +348,7 @@ const PrivacyPolicy = ({ isDark }) => {
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              10. Data Retention
+              11. Data Retention
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -293,7 +362,7 @@ const PrivacyPolicy = ({ isDark }) => {
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              11. Children's Privacy
+              12. Children's Privacy
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -307,7 +376,7 @@ const PrivacyPolicy = ({ isDark }) => {
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              12. System Maintenance Policy
+              13. System Maintenance Policy
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed mb-3 ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -491,7 +560,7 @@ const PrivacyPolicy = ({ isDark }) => {
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`}>
-              13. Policy Changes
+              14. Policy Changes
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed ${
               isDark ? 'text-gray-300' : 'text-gray-700'
@@ -507,7 +576,7 @@ const PrivacyPolicy = ({ isDark }) => {
             <h3 className={`text-xl sm:text-2xl font-semibold mb-4 ${
               isDark ? 'text-green-400' : 'text-green-600'
             }`}>
-              14. User Agreement & Acceptance
+              15. User Agreement & Acceptance
             </h3>
             <p className={`text-sm sm:text-base leading-relaxed ${
               isDark ? 'text-gray-300' : 'text-gray-700'
