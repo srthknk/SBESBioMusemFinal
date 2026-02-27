@@ -1,7 +1,7 @@
 {
-  "name": "BioMuseum - Interactive Biology Museum",
-  "short_name": "BioMuseum",
-  "description": "Explore the wonders of life science with BioMuseum - Interactive biology museum with videos, AI assistant, and educational content.",
+  "name": "ZooMuseum - Interactive Biology Museum",
+  "short_name": "ZooMuseum",
+  "description": "Explore the wonders of life science with ZooMuseum - Interactive zoology museum with videos, AI assistant, and educational content.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

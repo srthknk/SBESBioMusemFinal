@@ -364,7 +364,7 @@ const Homepage = () => {
                   fontFamily: siteSettings?.font_family || 'Poppins, system-ui, sans-serif'
                 }}
               >
-                {siteSettings?.website_name || 'BioMuseum'}
+                {siteSettings?.website_name || 'ZooMuseum'}
               </h1>
             </div>
             <div className="flex gap-2 sm:gap-3 items-center">
@@ -447,7 +447,7 @@ const Homepage = () => {
           
           {/* Title */}
           <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-white text-center mb-2 sm:mb-3 md:mb-4 leading-tight drop-shadow-lg max-w-4xl px-2">
-            {siteSettings?.website_name || 'BioMuseum'} - A Journey Through Living Wonders
+            {siteSettings?.website_name || 'ZooMuseum'} - A Journey Through Living Wonders
           </h1>
           
           {/* Description */}
@@ -595,7 +595,7 @@ const Homepage = () => {
 
             {/* Footer in Sidebar */}
             <div className="border-t border-gray-600 p-4">
-              <p className="text-gray-400 text-sm text-center">© 2025 {siteSettings?.website_name || 'BioMuseum'}</p>
+              <p className="text-gray-400 text-sm text-center">© 2025 {siteSettings?.website_name || 'ZooMuseum'}</p>
             </div>
           </div>
         </div>
@@ -971,7 +971,7 @@ const PrintQRCodesTab = ({ organisms, isDark }) => {
   const [showHistory, setShowHistory] = useState(false);
   const printRef = React.useRef();
   const MAX_ORGANISMS = 20;
-  const STORAGE_KEY = 'biomuseum_print_history';
+  const STORAGE_KEY = 'zoomuseum_print_history';
 
   // Load history from localStorage on mount
   useEffect(() => {
@@ -3280,7 +3280,7 @@ const PrintOrganismModal = ({ organism, isDark, onClose }) => {
             <div class="scientific-name">${organism.scientific_name}</div>
             <div class="qr-code" id="qr-placeholder"></div>
             <div class="footer">
-              <p>BioMuseum Collection</p>
+              <p>ZooMuseum Collection</p>
               <p>${istDate}</p>
             </div>
           </div>

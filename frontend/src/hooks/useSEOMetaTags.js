@@ -5,7 +5,7 @@ import { Helmet } from 'react-helmet-async';
 export const useSEOMetaTags = (config) => {
   return (
     <Helmet>
-      <title>{config.title} | BioMuseum</title>
+      <title>{config.title} | ZooMuseum</title>
       <meta name="description" content={config.description} />
       <meta property="og:title" content={config.title} />
       <meta property="og:description" content={config.description} />

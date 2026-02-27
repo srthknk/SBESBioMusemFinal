@@ -11,8 +11,8 @@ class PWAConfig:
     
     # Web App Manifest for PWA
     MANIFEST = {
-        "name": "BioMuseum - Biology Education Platform",
-        "short_name": "BioMuseum",
+        "name": "ZooMuseum - Biology Education Platform",
+        "short_name": "ZooMuseum",
         "description": "Interactive biology education platform with organism database and educational videos",
         "start_url": "/",
         "scope": "/",
@@ -95,8 +95,8 @@ class PWAConfig:
     def get_service_worker_code() -> str:
         """Get service worker code for offline support"""
         return '''
-// Service Worker for BioMuseum PWA
-const CACHE_NAME = 'biomuseum-v1';
+// Service Worker for ZooMuseum PWA
+const CACHE_NAME = 'zoomuseum-v1';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -184,7 +184,7 @@ self.addEventListener('push', (event) => {
   };
   
   event.waitUntil(
-    self.registration.showNotification(data.title || 'BioMuseum', options)
+    self.registration.showNotification(data.title || 'ZooMuseum', options)
   );
 });
 '''
@@ -198,7 +198,7 @@ self.addEventListener('push', (event) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offline - BioMuseum</title>
+    <title>Offline - ZooMuseum</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -237,7 +237,7 @@ self.addEventListener('push', (event) => {
     <div class="container">
         <div class="icon">📡</div>
         <h1>You're Offline</h1>
-        <p>BioMuseum requires an internet connection. Please check your network and try again.</p>
+        <p>ZooMuseum requires an internet connection. Please check your network and try again.</p>
         <p>Previously viewed organisms will be available shortly.</p>
         <button onclick="location.reload()">Try Again</button>
     </div>
@@ -259,7 +259,7 @@ class OfflineData:
     def get_offline_storage_schema() -> Dict:
         """IndexedDB schema for offline storage"""
         return {
-            "database": "BioMuseum",
+            "database": "ZooMuseum",
             "version": 1,
             "stores": [
                 {

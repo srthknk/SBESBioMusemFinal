@@ -443,7 +443,7 @@ class Blog(BaseModel):
     subject: str
     content: str
     image_url: str = ""
-    author: str = "BioMuseum AI"
+    author: str = "ZooMuseum AI"
     qr_code: str = ""
     visibility: str = "public"  # public, private, draft
     views: int = 0
@@ -457,7 +457,7 @@ class BlogCreate(BaseModel):
     subject: str
     content: str
     image_url: Optional[str] = ""
-    author: Optional[str] = "BioMuseum"
+    author: Optional[str] = "ZooMuseum"
     is_ai_generated: Optional[bool] = True
 
 class BlogUpdate(BaseModel):
@@ -501,7 +501,7 @@ class BlogGenerateRequest(BaseModel):
 class SiteSettings(BaseModel):
     """Site-wide personalization settings"""
     id: str = Field(default_factory=lambda: "site_settings")
-    website_name: str = "BioMuseum"
+    website_name: str = "ZooMuseum"
     initiative_text: str = "An Initiative by"
     college_name: str = "SBES College of Science"
     department_name: str = "Zoology Department"
@@ -1109,7 +1109,7 @@ def search_unsplash_images(organism_name: str, count: int = 6):
                     'orientation': 'landscape'
                 },
                 timeout=10,
-                headers={'User-Agent': 'BioMuseum/1.0'}
+                headers={'User-Agent': 'ZooMuseum/1.0'}
             )
             
             if response.status_code == 200:
@@ -3207,11 +3207,11 @@ async def update_blog_suggestion_status(suggestion_id: str, status: dict, _: boo
         logging.error(f"Error updating suggestion status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# BioMuseum AI Chatbot Endpoint
+# ZooMuseum AI Chatbot Endpoint
 @api_router.post("/ai/ask")
 async def ask_biology_question(request: BiologyQuestion):
     """
-    Ask BioMuseum Intelligence about any biology topic (Classes 1-12, NEET, degree, PhD level)
+    Ask ZooMuseum Intelligence about any biology topic (Classes 1-12, NEET, degree, PhD level)
     Only answers biology-related questions
     """
     try:
@@ -3226,7 +3226,7 @@ async def ask_biology_question(request: BiologyQuestion):
         model = genai.GenerativeModel('gemini-2.5-flash')
         
         # Shorter, more efficient prompt to reduce token usage
-        comprehensive_prompt = f"""You are BioMuseum Intelligence. ONLY answer biology questions.
+        comprehensive_prompt = f"""You are ZooMuseum Intelligence. ONLY answer biology questions.
 
 Question: {question}
 

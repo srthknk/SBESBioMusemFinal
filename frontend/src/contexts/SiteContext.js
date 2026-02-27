@@ -5,7 +5,7 @@ export const SiteContext = createContext();
 
 export const SiteProvider = ({ children }) => {
   const [siteSettings, setSiteSettings] = useState({
-    website_name: 'BioMuseum',
+    website_name: 'ZooMuseum',
     initiative_text: 'An Initiative by',
     college_name: 'SBES College of Science',
     department_name: 'Zoology Department',

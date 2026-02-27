@@ -266,7 +266,7 @@ async def seed_database():
         
         default_settings = {
             "id": "site_settings",
-            "website_name": "BioMuseum",
+            "website_name": "ZooMuseum",
             "initiative_text": "An Initiative by",
             "college_name": "SBES College of Science",
             "department_name": "Zoology Department",
