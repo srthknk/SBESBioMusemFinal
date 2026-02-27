@@ -6,6 +6,31 @@ import { SiteContext } from '../contexts/SiteContext';
 const PrivacyPolicy = ({ isDark }) => {
   const navigate = useNavigate();
   const { siteSettings } = React.useContext(SiteContext);
+  const [contactInfo, setContactInfo] = React.useState({
+    contact_email: 'sarthaknk08@gmail.com',
+    support_email: 'sarthaknk08@gmail.com',
+    phone_number: '',
+    address: ''
+  });
+
+  const BACKEND_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:8000'
+    : (process.env.REACT_APP_BACKEND_URL || 'https://zoomuseumsbes.onrender.com');
+
+  React.useEffect(() => {
+    const fetchContactInfo = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/contact-info`);
+        if (response.ok) {
+          const data = await response.json();
+          setContactInfo(data);
+        }
+      } catch (error) {
+        console.error('Error fetching contact info:', error);
+      }
+    };
+    fetchContactInfo();
+  }, [BACKEND_URL]);
 
   return (
     <div className={`flex flex-col min-h-screen ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
@@ -612,7 +637,9 @@ const PrivacyPolicy = ({ isDark }) => {
               isDark ? 'text-gray-300' : 'text-gray-700'
             }`}>
               <p className="font-semibold">{siteSettings?.website_name || 'BioMuseum'}</p>
-              <p>Email: sarthaknk08@gmail.com</p>
+              <p>Email: <a href={`mailto:${contactInfo.contact_email}`} className={`${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'} transition-colors`}>{contactInfo.contact_email}</a></p>
+              {contactInfo.phone_number && <p>Phone: {contactInfo.phone_number}</p>}
+              {contactInfo.address && <p>Address: {contactInfo.address}</p>}
             </div>
           </section>
         </div>

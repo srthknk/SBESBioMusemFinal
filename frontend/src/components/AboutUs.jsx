@@ -6,6 +6,31 @@ import { SiteContext } from '../contexts/SiteContext';
 const AboutUs = ({ isDark }) => {
   const navigate = useNavigate();
   const { siteSettings } = React.useContext(SiteContext);
+  const [contactInfo, setContactInfo] = React.useState({
+    contact_email: 'sarthaknk07@outlook.com',
+    support_email: 'sarthaknk08@gmail.com',
+    phone_number: '',
+    address: ''
+  });
+
+  const BACKEND_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:8000'
+    : (process.env.REACT_APP_BACKEND_URL || 'https://zoomuseumsbes.onrender.com');
+
+  React.useEffect(() => {
+    const fetchContactInfo = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/contact-info`);
+        if (response.ok) {
+          const data = await response.json();
+          setContactInfo(data);
+        }
+      } catch (error) {
+        console.error('Error fetching contact info:', error);
+      }
+    };
+    fetchContactInfo();
+  }, [BACKEND_URL]);
 
   return (
     <div className={`flex flex-col min-h-screen ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
@@ -153,17 +178,25 @@ const AboutUs = ({ isDark }) => {
                 <ul className={`space-y-2 text-xs sm:text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   <li>
                     <a
-                      href="mailto:sarthaknk07@outlook.com"
+                      href={`mailto:${contactInfo.contact_email}`}
                       className={`${isDark ? 'hover:text-yellow-400' : 'hover:text-yellow-600'} transition-colors duration-200 flex items-center gap-2`}
                     >
                       <i className="fa-solid fa-envelope"></i>
                       <span className="break-all">Email Us</span>
                     </a>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <i className="fa-solid fa-map-marker-alt flex-shrink-0 mt-1"></i>
-                    <span>Zoology Department, SBES College of Science</span>
-                  </li>
+                  {contactInfo.phone_number && (
+                    <li className="flex items-start gap-2">
+                      <i className="fa-solid fa-phone flex-shrink-0 mt-0.5"></i>
+                      <span>{contactInfo.phone_number}</span>
+                    </li>
+                  )}
+                  {contactInfo.address && (
+                    <li className="flex items-start gap-2">
+                      <i className="fa-solid fa-map-marker-alt flex-shrink-0 mt-1"></i>
+                      <span>{contactInfo.address}</span>
+                    </li>
+                  )}
                 </ul>
               </div>
 

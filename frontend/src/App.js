@@ -17,6 +17,7 @@ import PersonalizationAdminPanel from './components/PersonalizationAdminPanel';
 import AdminUsersAdminPanel from './components/AdminUsersAdminPanel';
 import MaintenanceAdminPanel from './components/MaintenanceAdminPanel';
 import VisitorsAdminPanel from './components/VisitorsAdminPanel';
+import ConfigNotesAdminPanel from './components/ConfigNotesAdminPanel';
 import BioMuseumAIChatbot from './components/BioMuseumAIChatbot';
 import MaintenancePopup from './components/MaintenancePopup';
 import { AuthProvider } from './context/AuthContext';
@@ -1593,232 +1594,192 @@ const AdminPanel = () => {
         </div>
       </header>
 
-      {/* Navigation Tabs */}
+      {/* Navigation - Horizontal Organism Management + Hamburger */}
+      <style>{`
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes slideUp {
+          from {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          to {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+        }
+        .menu-open {
+          animation: slideDown 0.3s ease-out;
+        }
+        .menu-close {
+          animation: slideUp 0.3s ease-out;
+        }
+        .hamburger-menu {
+          position: absolute;
+          top: 100%;
+          right: 0;
+          min-width: 320px;
+          max-width: 400px;
+          max-height: 70vh;
+          overflow-y: auto;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+          border-radius: 8px;
+          margin-top: 8px;
+          z-index: 50;
+        }
+        .hamburger-menu::-webkit-scrollbar {
+          width: 6px;
+        }
+        .hamburger-menu::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .hamburger-menu::-webkit-scrollbar-thumb {
+          background: rgba(156, 163, 175, 0.5);
+          border-radius: 3px;
+        }
+        .hamburger-menu::-webkit-scrollbar-thumb:hover {
+          background: rgba(156, 163, 175, 0.7);
+        }
+      `}</style>
+      
       <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky top-16 z-30`}>
-        <div className="max-w-7xl mx-auto">
-          {/* Mobile Menu Button */}
-          <div className="sm:hidden flex items-center justify-between px-3 py-2">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className={`px-3 py-2 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}
-            >
-              <i className={`fa-solid fa-bars ${isDark ? 'text-white' : 'text-gray-800'}`}></i>
-            </button>
-          </div>
-
-          {/* Desktop Menu */}
-          <div className={`hidden sm:flex gap-2 flex-wrap items-center border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-            <button
-              onClick={() => setActiveView('dashboard')}
-              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'dashboard' 
-                ? `border-b-2 text-white` 
-                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
-              style={activeView === 'dashboard' ? {
-                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
-                color: siteSettings?.primary_color || '#7c3aed'
-              } : {}}
-            >
-              <i className="fa-solid fa-chart-simple text-xs"></i> Dashboard
-            </button>
-            <button
-              onClick={() => setActiveView('add')}
-              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'add' 
-                ? `border-b-2 text-white` 
-                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
-              style={activeView === 'add' ? {
-                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
-                color: siteSettings?.primary_color || '#7c3aed'
-              } : {}}
-            >
-              <i className="fa-solid fa-plus text-xs"></i> Add Organism
-            </button>
-            <button
-              onClick={() => setActiveView('manage')}
-              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'manage' 
-                ? `border-b-2 text-white` 
-                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
-              style={activeView === 'manage' ? {
-                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
-                color: siteSettings?.primary_color || '#7c3aed'
-              } : {}}
-            >
-              <i className="fa-solid fa-pen-to-square text-xs"></i> Manage Organisms
-            </button>
-            <button
-              onClick={() => setActiveView('print')}
-              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'print' 
-                ? `border-b-2 text-white` 
-                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
-              style={activeView === 'print' ? {
-                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
-                color: siteSettings?.primary_color || '#7c3aed'
-              } : {}}
-            >
-              <i className="fa-solid fa-print text-xs"></i> Print QR
-            </button>
-            <button
-              onClick={() => setActiveView('suggestions')}
-              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'suggestions' 
-                ? `border-b-2 text-white` 
-                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
-              style={activeView === 'suggestions' ? {
-                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
-                color: siteSettings?.primary_color || '#7c3aed'
-              } : {}}
-            >
-              <i className="fa-solid fa-lightbulb text-xs"></i> Suggested
-            </button>
-            <button
-              onClick={() => setActiveView('users')}
-              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'users' 
-                ? `border-b-2 text-white` 
-                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
-              style={activeView === 'users' ? {
-                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
-                color: siteSettings?.primary_color || '#7c3aed'
-              } : {}}
-            >
-              <i className="fa-solid fa-user-clock text-xs"></i> Users
-            </button>
-            <button
-              onClick={() => setActiveView('biotube')}
-              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'biotube' 
-                ? `border-b-2 text-white` 
-                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
-              style={activeView === 'biotube' ? {
-                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
-                color: siteSettings?.primary_color || '#7c3aed'
-              } : {}}
-            >
-              <i className="fa-solid fa-clapperboard text-xs"></i> BioTube
-            </button>
-            <button
-              onClick={() => setActiveView('blogs')}
-              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'blogs' 
-                ? `border-b-2 text-white` 
-                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
-              style={activeView === 'blogs' ? {
-                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
-                color: siteSettings?.primary_color || '#7c3aed'
-              } : {}}
-            >
-              <i className="fa-solid fa-book text-xs"></i> Blogs
-            </button>
-            <button
-              onClick={() => setActiveView('personalization')}
-              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'personalization' 
-                ? `border-b-2 text-white` 
-                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
-              style={activeView === 'personalization' ? {
-                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
-                color: siteSettings?.primary_color || '#7c3aed'
-              } : {}}
-            >
-              <i className="fa-solid fa-wand-magic-sparkles text-xs"></i> Settings
-            </button>
-            <button
-              onClick={() => setActiveView('admin-users')}
-              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'admin-users' 
-                ? `border-b-2 text-white` 
-                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
-              style={activeView === 'admin-users' ? {
-                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
-                color: siteSettings?.primary_color || '#7c3aed'
-              } : {}}
-            >
-              <i className="fa-solid fa-users-gear text-xs"></i> Admin Users
-            </button>
-            <button
-              onClick={() => setActiveView('visitors')}
-              className={`px-3 py-2 text-sm font-medium transition-all ${activeView === 'visitors' 
-                ? `border-b-2 text-white` 
-                : `${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}`}
-              style={activeView === 'visitors' ? {
-                borderBottomColor: siteSettings?.primary_color || '#7c3aed',
-                color: siteSettings?.primary_color || '#7c3aed'
-              } : {}}
-            >
-              <i className="fa-solid fa-users mr-1"></i> Visitors
-            </button>
-          </div>
-
-          {/* Mobile Menu */}
-          {mobileMenuOpen && (
-            <div className={`sm:hidden border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative">
+          {/* Organism Management Horizontal Bar */}
+          <div className="flex items-center justify-between py-3 gap-4">
+            {/* Left: Organism Management Buttons */}
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => { setActiveView('dashboard'); setMobileMenuOpen(false); }}
-                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'dashboard' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
+                onClick={() => setActiveView('manage')}
+                className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${activeView === 'manage' 
+                  ? `${isDark ? 'bg-purple-600 text-white' : 'bg-purple-200 text-purple-900'}` 
+                  : `${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}`}
               >
-                <i className="fa-solid fa-chart-line mr-2"></i>Dashboard
+                <i className="fa-solid fa-pen-to-square mr-2"></i>Manage
               </button>
               <button
-                onClick={() => { setActiveView('add'); setMobileMenuOpen(false); }}
-                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'add' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
+                onClick={() => setActiveView('add')}
+                className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${activeView === 'add' 
+                  ? `${isDark ? 'bg-purple-600 text-white' : 'bg-purple-200 text-purple-900'}` 
+                  : `${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}`}
               >
-                <i className="fa-solid fa-plus mr-2"></i>Add Organism
+                <i className="fa-solid fa-plus mr-2"></i>Add
               </button>
               <button
-                onClick={() => { setActiveView('manage'); setMobileMenuOpen(false); }}
-                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'manage' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
+                onClick={() => setActiveView('print')}
+                className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${activeView === 'print' 
+                  ? `${isDark ? 'bg-purple-600 text-white' : 'bg-purple-200 text-purple-900'}` 
+                  : `${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}`}
               >
-                <i className="fa-solid fa-pen-to-square mr-2"></i>Manage Organisms
-              </button>
-              <button
-                onClick={() => { setActiveView('print'); setMobileMenuOpen(false); }}
-                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'print' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
-              >
-                <i className="fa-solid fa-print mr-2"></i>Print QR Codes
-              </button>
-              <button
-                onClick={() => { setActiveView('suggestions'); setMobileMenuOpen(false); }}
-                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'suggestions' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
-              >
-                <i className="fa-solid fa-lightbulb mr-2"></i>Suggested Organisms
-              </button>
-              <button
-                onClick={() => { setActiveView('users'); setMobileMenuOpen(false); }}
-                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'users' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
-              >
-                <i className="fa-solid fa-users mr-2"></i>Users History
-              </button>
-              <button
-                onClick={() => { setActiveView('biotube'); setMobileMenuOpen(false); }}
-                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'biotube' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
-              >
-                <i className="fa-solid fa-clapperboard mr-2"></i>Biotube
-              </button>
-              <button
-                onClick={() => { setActiveView('blogs'); setMobileMenuOpen(false); }}
-                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'blogs' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
-              >
-                <i className="fa-solid fa-book mr-2"></i>Blogs
-              </button>
-              <button
-                onClick={() => { setActiveView('personalization'); setMobileMenuOpen(false); }}
-                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'personalization' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
-              >
-                <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>Personalization
-              </button>
-              <button
-                onClick={() => { setActiveView('admin-users'); setMobileMenuOpen(false); }}
-                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'admin-users' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
-              >
-                <i className="fa-solid fa-users-gear mr-2"></i>Admin Users
-              </button>
-              <button
-                onClick={() => { setActiveView('visitors'); setMobileMenuOpen(false); }}
-                className={`w-full text-left px-4 py-3 font-semibold ${activeView === 'visitors' ? (isDark ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700') : (isDark ? 'text-gray-300' : 'text-gray-700')}`}
-              >
-                <i className="fa-solid fa-users mr-2"></i>Visitors
-              </button>
-              <button
-                onClick={() => { navigate('/'); setMobileMenuOpen(false); }}
-                className={`w-full text-left px-4 py-3 font-semibold border-t ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-700'}`}
-              >
-                <i className="fa-solid fa-house mr-2"></i>Home
+                <i className="fa-solid fa-print mr-2"></i>Print
               </button>
             </div>
-          )}
+
+            {/* Right: Hamburger Button */}
+            <div className="relative">
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all duration-200 ${
+                  isDark
+                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                }`}
+              >
+                <i className={`fa-solid transition-transform duration-300 ${mobileMenuOpen ? 'fa-times' : 'fa-bars'}`}></i>
+              </button>
+
+              {/* Dropdown Menu */}
+              {mobileMenuOpen && (
+                <div className={`hamburger-menu menu-open ${isDark ? 'bg-gray-700 border border-gray-600' : 'bg-white border border-gray-200'}`}>
+                  {/* Analytics & Reports Section */}
+                  <div className={`px-4 py-3 border-b ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+                    <div className={`text-xs font-bold px-2 py-1 mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <i className="fa-solid fa-chart-line mr-2"></i>Analytics
+                    </div>
+                    <button
+                      onClick={() => { setActiveView('dashboard'); setMobileMenuOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded text-sm font-medium mb-1 transition-all ${activeView === 'dashboard' ? (isDark ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-900') : (isDark ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-700 hover:bg-gray-100')}`}
+                    >
+                      <i className="fa-solid fa-chart-simple mr-2"></i>Dashboard
+                    </button>
+                    <button
+                      onClick={() => { setActiveView('visitors'); setMobileMenuOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-all ${activeView === 'visitors' ? (isDark ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-900') : (isDark ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-700 hover:bg-gray-100')}`}
+                    >
+                      <i className="fa-solid fa-users mr-2"></i>Visitors
+                    </button>
+                  </div>
+
+                  {/* Content Management Section */}
+                  <div className={`px-4 py-3 border-b ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+                    <div className={`text-xs font-bold px-2 py-1 mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <i className="fa-solid fa-file-lines mr-2"></i>Content
+                    </div>
+                    <button
+                      onClick={() => { setActiveView('blogs'); setMobileMenuOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded text-sm font-medium mb-1 transition-all ${activeView === 'blogs' ? (isDark ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-900') : (isDark ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-700 hover:bg-gray-100')}`}
+                    >
+                      <i className="fa-solid fa-book mr-2"></i>Blogs
+                    </button>
+                    <button
+                      onClick={() => { setActiveView('biotube'); setMobileMenuOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded text-sm font-medium mb-1 transition-all ${activeView === 'biotube' ? (isDark ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-900') : (isDark ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-700 hover:bg-gray-100')}`}
+                    >
+                      <i className="fa-solid fa-clapperboard mr-2"></i>BioTube
+                    </button>
+                    <button
+                      onClick={() => { setActiveView('suggestions'); setMobileMenuOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-all ${activeView === 'suggestions' ? (isDark ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-900') : (isDark ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-700 hover:bg-gray-100')}`}
+                    >
+                      <i className="fa-solid fa-lightbulb mr-2"></i>Suggestions
+                    </button>
+                  </div>
+
+                  {/* Admin Configuration Section */}
+                  <div className={`px-4 py-3 border-b ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+                    <div className={`text-xs font-bold px-2 py-1 mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <i className="fa-solid fa-sliders mr-2"></i>Configuration
+                    </div>
+                    <button
+                      onClick={() => { setActiveView('config-notes'); setMobileMenuOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded text-sm font-medium mb-1 transition-all ${activeView === 'config-notes' ? (isDark ? 'bg-red-600 text-white' : 'bg-red-100 text-red-900') : (isDark ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-700 hover:bg-gray-100')}`}
+                    >
+                      <i className="fa-solid fa-sliders mr-2"></i>Config Notes
+                    </button>
+                    <button
+                      onClick={() => { setActiveView('personalization'); setMobileMenuOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded text-sm font-medium mb-1 transition-all ${activeView === 'personalization' ? (isDark ? 'bg-red-600 text-white' : 'bg-red-100 text-red-900') : (isDark ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-700 hover:bg-gray-100')}`}
+                    >
+                      <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>Settings
+                    </button>
+                    <button
+                      onClick={() => { setActiveView('admin-users'); setMobileMenuOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-all ${activeView === 'admin-users' ? (isDark ? 'bg-red-600 text-white' : 'bg-red-100 text-red-900') : (isDark ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-700 hover:bg-gray-100')}`}
+                    >
+                      <i className="fa-solid fa-users-gear mr-2"></i>Admin Users
+                    </button>
+                  </div>
+
+                  {/* Users Section */}
+                  <div className={`px-4 py-3`}>
+                    <button
+                      onClick={() => { setActiveView('users'); setMobileMenuOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-all ${activeView === 'users' ? (isDark ? 'bg-green-600 text-white' : 'bg-green-100 text-green-900') : (isDark ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-700 hover:bg-gray-100')}`}
+                    >
+                      <i className="fa-solid fa-user-clock mr-2"></i>Users History
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1893,6 +1854,12 @@ const AdminPanel = () => {
         )}
         {activeView === 'visitors' && (
           <VisitorsAdminPanel
+            token={token}
+            isDark={isDark}
+          />
+        )}
+        {activeView === 'config-notes' && (
+          <ConfigNotesAdminPanel
             token={token}
             isDark={isDark}
           />
@@ -4285,6 +4252,12 @@ const OrganismsPage = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [contactInfo, setContactInfo] = useState({
+    contact_email: 'sarthaknk07@outlook.com',
+    support_email: 'sarthaknk08@gmail.com',
+    phone_number: '',
+    address: ''
+  });
   const ITEMS_PER_PAGE = 20;
   const navigate = useNavigate();
   const { isDark, toggleTheme } = React.useContext(ThemeContext);
@@ -4292,7 +4265,19 @@ const OrganismsPage = () => {
 
   useEffect(() => {
     fetchOrganisms();
+    fetchContactInfo();
   }, []);
+
+  const fetchContactInfo = async () => {
+    try {
+      const response = await axios.get(`${API}/contact-info`);
+      if (response.data) {
+        setContactInfo(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching contact info:', error);
+    }
+  };
 
   const fetchOrganisms = async () => {
     try {
@@ -4723,7 +4708,7 @@ const OrganismsPage = () => {
             </div>
             <div className="text-center sm:text-left">
               <h4 className="text-xs sm:text-sm font-semibold mb-1 text-green-400">Contact</h4>
-              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-300'}`}><a href="mailto:sarthaknk07@outlook.com" className="hover:text-green-400">Email</a></p>
+              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-300'}`}><a href={`mailto:${contactInfo.contact_email}`} className="hover:text-green-400">Email</a></p>
             </div>
           </div>
           <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-700'} mt-2 sm:mt-3 pt-2 sm:pt-3 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'} text-xs`}>

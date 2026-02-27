@@ -9,7 +9,11 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
     primary_color: siteSettings.primary_color || '#7c3aed',
     secondary_color: siteSettings.secondary_color || '#3b82f6',
     font_url: siteSettings.font_url || '',
-    font_family: siteSettings.font_family || 'Poppins'
+    font_family: siteSettings.font_family || 'Poppins',
+    contact_email: siteSettings.contact_email || 'sarthaknk08@gmail.com',
+    support_email: siteSettings.support_email || 'sarthaknk08@gmail.com',
+    phone_number: siteSettings.phone_number || '',
+    address: siteSettings.address || ''
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
@@ -36,7 +40,11 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
         primary_color: siteSettings.primary_color || '#7c3aed',
         secondary_color: siteSettings.secondary_color || '#3b82f6',
         font_url: siteSettings.font_url || '',
-        font_family: siteSettings.font_family || 'Poppins'
+        font_family: siteSettings.font_family || 'Poppins',
+        contact_email: siteSettings.contact_email || 'sarthaknk08@gmail.com',
+        support_email: siteSettings.support_email || 'sarthaknk08@gmail.com',
+        phone_number: siteSettings.phone_number || '',
+        address: siteSettings.address || ''
       });
       setLogoPreview(siteSettings.logo_url);
     }
@@ -528,6 +536,109 @@ const PersonalizationAdminPanel = ({ token, isDark }) => {
                   </p>
                 </div>
               )}
+            </div>
+
+            {/* Contact Information Section */}
+            <div className={`p-4 sm:p-6 rounded-lg border-2 ${isDark ? 'bg-gray-750 border-blue-600' : 'bg-blue-50 border-blue-300'}`}>
+              <h3 className={`text-lg sm:text-xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>
+                <i className="fa-solid fa-phone fa-lg"></i>
+                Contact Information
+              </h3>
+              <p className={`text-xs sm:text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Manage contact details displayed in footer, privacy policy, and about pages
+              </p>
+
+              {/* Contact Email */}
+              <div className="mb-4 sm:mb-5">
+                <label className={`block text-sm sm:text-base font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                  <i className="fa-solid fa-envelope mr-2 text-red-500"></i>
+                  Contact Email
+                </label>
+                <input
+                  type="email"
+                  name="contact_email"
+                  value={formData.contact_email || ''}
+                  onChange={handleInputChange}
+                  placeholder="contact@example.com"
+                  className={`w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-sm sm:text-base ${
+                    isDark
+                      ? 'bg-gray-700 border-gray-600 text-white focus:border-red-500 focus:ring-2 focus:ring-red-900'
+                      : 'border-gray-300 focus:border-red-500 focus:ring-2 focus:ring-red-200'
+                  } focus:outline-none`}
+                />
+                <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Primary contact email for public inquiries
+                </p>
+              </div>
+
+              {/* Support Email */}
+              <div className="mb-4 sm:mb-5">
+                <label className={`block text-sm sm:text-base font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                  <i className="fa-solid fa-headset mr-2 text-orange-500"></i>
+                  Support Email
+                </label>
+                <input
+                  type="email"
+                  name="support_email"
+                  value={formData.support_email || ''}
+                  onChange={handleInputChange}
+                  placeholder="support@example.com"
+                  className={`w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-sm sm:text-base ${
+                    isDark
+                      ? 'bg-gray-700 border-gray-600 text-white focus:border-orange-500 focus:ring-2 focus:ring-orange-900'
+                      : 'border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200'
+                  } focus:outline-none`}
+                />
+                <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Support and customer service email
+                </p>
+              </div>
+
+              {/* Phone Number */}
+              <div className="mb-4 sm:mb-5">
+                <label className={`block text-sm sm:text-base font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                  <i className="fa-solid fa-phone mr-2 text-green-500"></i>
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  name="phone_number"
+                  value={formData.phone_number || ''}
+                  onChange={handleInputChange}
+                  placeholder="+91 XXXXX XXXXX"
+                  className={`w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-sm sm:text-base ${
+                    isDark
+                      ? 'bg-gray-700 border-gray-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-900'
+                      : 'border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200'
+                  } focus:outline-none`}
+                />
+                <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Phone number for contact (optional)
+                </p>
+              </div>
+
+              {/* Address */}
+              <div>
+                <label className={`block text-sm sm:text-base font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                  <i className="fa-solid fa-map-marker-alt mr-2 text-purple-500"></i>
+                  Address
+                </label>
+                <textarea
+                  name="address"
+                  value={formData.address || ''}
+                  onChange={handleInputChange}
+                  placeholder="123 Main St, City, State, Country"
+                  rows="3"
+                  className={`w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-2 transition-all text-sm sm:text-base ${
+                    isDark
+                      ? 'bg-gray-700 border-gray-600 text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-900'
+                      : 'border-gray-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200'
+                  } focus:outline-none resize-none`}
+                />
+                <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Physical address of your organization (optional)
+                </p>
+              </div>
             </div>
 
             {/* Action Buttons */}

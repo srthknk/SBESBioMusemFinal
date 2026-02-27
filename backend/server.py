@@ -3,6 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import ASCENDING, DESCENDING
 import os
 import sys
 import logging
@@ -73,10 +74,11 @@ admins_collection = None
 admin_sessions_collection = None
 maintenance_controls = None
 visitors_collection = None
+config_notes_collection = None
 mongodb_connected = False
 
 async def init_mongodb():
-    global db, organisms_collection, suggestions_collection, biotube_videos_collection, video_suggestions_collection, video_comments_collection, blogs_collection, blog_suggestions_collection, gmail_users_collection, site_settings_collection, admins_collection, admin_sessions_collection, maintenance_controls, visitors_collection, mongodb_connected
+    global db, organisms_collection, suggestions_collection, biotube_videos_collection, video_suggestions_collection, video_comments_collection, blogs_collection, blog_suggestions_collection, gmail_users_collection, site_settings_collection, admins_collection, admin_sessions_collection, maintenance_controls, visitors_collection, config_notes_collection, mongodb_connected
     max_retries = 15  # Increased from 10 to 15
     retry_count = 0
     
@@ -130,6 +132,7 @@ async def init_mongodb():
             admin_sessions_collection = db.admin_sessions
             maintenance_controls = db.maintenance_controls
             visitors_collection = db.visitors
+            config_notes_collection = db.config_notes
             
             # Test that we can actually query
             test_count = await organisms_collection.count_documents({})
@@ -522,6 +525,10 @@ class SiteSettingsUpdate(BaseModel):
     secondary_color: Optional[str] = None
     font_url: Optional[str] = None
     font_family: Optional[str] = None
+    contact_email: Optional[str] = None
+    support_email: Optional[str] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
 
 class ClientStatus(BaseModel):
     """Model for client maintenance status"""
@@ -533,6 +540,59 @@ class ClientStatus(BaseModel):
     next_billing_date: Optional[str] = None
     created_at: str = Field(default_factory=get_ist_now)
     updated_at: str = Field(default_factory=get_ist_now)
+
+# ==================== CONFIGURATION NOTES MODELS ====================
+
+class ConfigNote(BaseModel):
+    """Configuration note for storing important deployment info"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    key: str  # e.g., "database_location", "frontend_server", "backend_server"
+    value: str  # The actual value
+    category: str = "general"  # general, database, deployment, server, api, security
+    description: Optional[str] = None  # Human-readable description
+    is_sensitive: bool = False  # Flag for sensitive data like passwords
+    is_locked: bool = False  # If True, can only be changed with superadmin approval
+    lock_reason: Optional[str] = None  # Why it's locked
+    change_requests: List[dict] = Field(default_factory=list)  # List of pending change requests
+    created_at: str = Field(default_factory=get_ist_now)
+    created_by: Optional[str] = None
+    updated_at: str = Field(default_factory=get_ist_now)
+    updated_by: Optional[str] = None
+    approval_required: bool = True  # If True, changes need superadmin approval
+    is_approved: bool = True  # New notes need approval
+
+class ConfigNoteCreate(BaseModel):
+    """Request model for creating a config note"""
+    key: str
+    value: str
+    category: Optional[str] = "general"
+    description: Optional[str] = None
+    is_sensitive: Optional[bool] = False
+    is_locked: Optional[bool] = False
+    lock_reason: Optional[str] = None
+
+class ConfigNoteUpdate(BaseModel):
+    """Request model for updating a config note"""
+    value: Optional[str] = None
+    key: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
+    is_sensitive: Optional[bool] = None
+    is_locked: Optional[bool] = None
+    lock_reason: Optional[str] = None
+
+class ConfigNoteChangeRequest(BaseModel):
+    """Model for requesting changes to a locked config note"""
+    config_note_id: str
+    new_value: str
+    reason: Optional[str] = None
+    requested_by: Optional[str] = None
+
+class ConfigNoteChangeApproval(BaseModel):
+    """Model for approving/rejecting change requests"""
+    approved: bool
+    approval_reason: Optional[str] = None
+    approved_by: Optional[str] = None
 
 # Database functions - MongoDB only (no JSON fallback)
 async def get_organisms_list():
@@ -3309,6 +3369,63 @@ async def update_site_settings(settings: SiteSettingsUpdate, _: bool = Depends(v
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ==================== CONTACT INFORMATION ENDPOINTS ====================
+
+class ContactUpdate(BaseModel):
+    contact_email: Optional[str] = None
+    support_email: Optional[str] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+
+# Get contact information (public)
+@api_router.get("/contact-info")
+async def get_contact_info():
+    try:
+        settings = await site_settings_collection.find_one({"id": "site_settings"})
+        if not settings:
+            return {
+                "contact_email": "sarthaknk08@gmail.com",
+                "support_email": "sarthaknk08@gmail.com",
+                "phone_number": "",
+                "address": ""
+            }
+        
+        return {
+            "contact_email": settings.get("contact_email", "sarthaknk08@gmail.com"),
+            "support_email": settings.get("support_email", "sarthaknk08@gmail.com"),
+            "phone_number": settings.get("phone_number", ""),
+            "address": settings.get("address", "")
+        }
+    except Exception as e:
+        logging.error(f"Error fetching contact info: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update contact information (admin only)
+@api_router.put("/admin/contact-info")
+async def update_contact_info(contact: ContactUpdate, _: bool = Depends(verify_admin_token)):
+    try:
+        update_data = contact.dict(exclude_unset=True)
+        update_data["updated_at"] = get_ist_now()
+        
+        result = await site_settings_collection.update_one(
+            {"id": "site_settings"},
+            {"$set": update_data},
+            upsert=True
+        )
+        
+        # Get and return updated contact info
+        settings = await site_settings_collection.find_one({"id": "site_settings"})
+        return {
+            "contact_email": settings.get("contact_email", "sarthaknk08@gmail.com"),
+            "support_email": settings.get("support_email", "sarthaknk08@gmail.com"),
+            "phone_number": settings.get("phone_number", ""),
+            "address": settings.get("address", "")
+        }
+    except Exception as e:
+        logging.error(f"Error updating contact info: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ==================== MAINTENANCE STATUS ENDPOINTS ====================
 
 class MaintenanceUpdate(BaseModel):
@@ -3591,6 +3708,457 @@ async def create_client(client: ClientStatus, _: bool = Depends(verify_admin_tok
     except Exception as e:
         logging.error(f"Error updating client status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== CONFIGURATION NOTES ENDPOINTS ====================
+
+# Create a new config note (admin only)
+@api_router.post("/admin/config-notes")
+async def create_config_note(note: ConfigNoteCreate, _: bool = Depends(verify_admin_token)):
+    """
+    Create a new configuration note for storing important deployment information.
+    Admin only.
+    """
+    try:
+        # Verify collection exists
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        # Check if key already exists
+        existing = await config_notes_collection.find_one({"key": note.key})
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Config note with key '{note.key}' already exists")
+        
+        now = get_ist_now()
+        config_note = {
+            "id": str(uuid.uuid4()),
+            "key": note.key,
+            "value": note.value,
+            "category": note.category or "general",
+            "description": note.description,
+            "is_sensitive": note.is_sensitive or False,
+            "is_locked": note.is_locked or False,
+            "lock_reason": note.lock_reason,
+            "change_requests": [],
+            "is_approved": True,
+            "approval_required": True,
+            "created_at": now,
+            "created_by": "admin",
+            "updated_at": now,
+            "updated_by": "admin"
+        }
+        
+        result = await config_notes_collection.insert_one(config_note)
+        
+        if not result.inserted_id:
+            raise HTTPException(status_code=500, detail="Failed to insert config note into database")
+        
+        logging.info(f"✓ Config note '{note.key}' created successfully with ID: {result.inserted_id}")
+        
+        # Return minimal response without the document (frontend will fetch fresh data anyway)
+        # This avoids MongoDB ObjectId serialization issues
+        return {
+            "success": True,
+            "message": f"Config note '{note.key}' created successfully",
+            "id": config_note["id"]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"❌ Error creating config note: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating config note: {str(e)}")
+
+# Get all config notes (admin only)
+@api_router.get("/admin/config-notes")
+async def get_all_config_notes(_: bool = Depends(verify_admin_token)):
+    """Fetch all configuration notes. Admin only."""
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        notes = await config_notes_collection.find({}).to_list(None)
+        
+        # Remove _id field and return
+        for note in notes:
+            note.pop("_id", None)
+        
+        return {
+            "success": True,
+            "count": len(notes),
+            "config_notes": notes
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"❌ Error fetching config notes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching config notes: {str(e)}")
+
+# Get a specific config note by ID (admin only)
+@api_router.get("/admin/config-notes/{note_id}")
+async def get_config_note(note_id: str, _: bool = Depends(verify_admin_token)):
+    """Fetch a specific configuration note by ID. Admin only."""
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        note = await config_notes_collection.find_one({"id": note_id})
+        
+        if not note:
+            raise HTTPException(status_code=404, detail="Config note not found")
+        
+        note.pop("_id", None)
+        return {
+            "success": True,
+            "config_note": note
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching config note: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update an unlocked config note (admin only)
+@api_router.put("/admin/config-notes/{note_id}")
+async def update_config_note(note_id: str, update: ConfigNoteUpdate, _: bool = Depends(verify_admin_token)):
+    """
+    Update a configuration note. 
+    If the note is locked, a change request will be created that requires superadmin approval.
+    Admin only.
+    """
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        note = await config_notes_collection.find_one({"id": note_id})
+        
+        if not note:
+            raise HTTPException(status_code=404, detail="Config note not found")
+        
+        now = get_ist_now()
+        
+        # If note is locked, create a change request instead
+        if note.get("is_locked", False):
+            change_request = {
+                "id": str(uuid.uuid4()),
+                "config_note_id": note_id,
+                "requested_key": note.get("key"),
+                "requested_value": update.value or note.get("value"),
+                "reason": update.description,
+                "status": "pending",
+                "requested_by": "admin",
+                "requested_at": now,
+                "approved_by": None,
+                "approved_at": None,
+                "approval_reason": None
+            }
+            
+            # Add change request to the note's change_requests array
+            await config_notes_collection.update_one(
+                {"id": note_id},
+                {
+                    "$push": {
+                        "change_requests": change_request
+                    }
+                }
+            )
+            
+            return {
+                "success": True,
+                "message": "Config note is locked. Change request created and awaiting superadmin approval.",
+                "change_request": change_request,
+                "requires_approval": True
+            }
+        
+        # If not locked, update directly
+        update_data = {}
+        if update.key is not None:
+            update_data["key"] = update.key
+        if update.value is not None:
+            update_data["value"] = update.value
+        if update.category is not None:
+            update_data["category"] = update.category
+        if update.description is not None:
+            update_data["description"] = update.description
+        if update.is_sensitive is not None:
+            update_data["is_sensitive"] = update.is_sensitive
+        if update.is_locked is not None:
+            update_data["is_locked"] = update.is_locked
+        if update.lock_reason is not None:
+            update_data["lock_reason"] = update.lock_reason
+        
+        update_data["updated_at"] = now
+        update_data["updated_by"] = "admin"
+        
+        await config_notes_collection.update_one(
+            {"id": note_id},
+            {"$set": update_data}
+        )
+        
+        updated_note = await config_notes_collection.find_one({"id": note_id})
+        updated_note.pop("_id", None)
+        
+        return {
+            "success": True,
+            "message": "Config note updated successfully",
+            "config_note": updated_note
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating config note: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Lock/Unlock a config note (admin only)
+@api_router.post("/admin/config-notes/{note_id}/lock")
+async def lock_config_note(note_id: str, data: dict, _: bool = Depends(verify_admin_token)):
+    """
+    Lock or unlock a configuration note. Locked notes require superadmin approval to change.
+    Admin only.
+    """
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        note = await config_notes_collection.find_one({"id": note_id})
+        
+        if not note:
+            raise HTTPException(status_code=404, detail="Config note not found")
+        
+        lock_status = data.get("is_locked", True)
+        lock_reason = data.get("lock_reason", None)
+        
+        now = get_ist_now()
+        
+        update_data = {
+            "is_locked": lock_status,
+            "lock_reason": lock_reason if lock_status else None,
+            "updated_at": now,
+            "updated_by": "admin"
+        }
+        
+        await config_notes_collection.update_one(
+            {"id": note_id},
+            {"$set": update_data}
+        )
+        
+        status_text = "locked" if lock_status else "unlocked"
+        message = f"Config note has been {status_text}."
+        if lock_status and lock_reason:
+            message += f"\nReason: {lock_reason}"
+        
+        return {
+            "success": True,
+            "message": message,
+            "is_locked": lock_status
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"❌ Error locking config note: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error locking config note: {str(e)}")
+
+# Request change on a locked config note (admin only)
+@api_router.post("/admin/config-notes/{note_id}/request-change")
+async def request_change(note_id: str, request: ConfigNoteChangeRequest, _: bool = Depends(verify_admin_token)):
+    """
+    Request a change to a locked configuration note.
+    The request will be sent for superadmin approval.
+    Admin only.
+    """
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        note = await config_notes_collection.find_one({"id": note_id})
+        
+        if not note:
+            raise HTTPException(status_code=404, detail="Config note not found")
+        
+        now = get_ist_now()
+        change_request = {
+            "id": str(uuid.uuid4()),
+            "config_note_id": note_id,
+            "requested_key": note.get("key"),
+            "new_value": request.new_value,
+            "reason": request.reason,
+            "status": "pending",
+            "requested_by": request.requested_by or "admin",
+            "requested_at": now,
+            "approved_by": None,
+            "approved_at": None,
+            "approval_reason": None
+        }
+        
+        # Add the change request to the note
+        await config_notes_collection.update_one(
+            {"id": note_id},
+            {
+                "$push": {
+                    "change_requests": change_request
+                }
+            }
+        )
+        
+        return {
+            "success": True,
+            "message": "Change request created successfully. Awaiting superadmin approval.",
+            "change_request": change_request
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error creating change request: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Approve or reject change request (superadmin only)
+@api_router.post("/admin/config-notes/change-request/{change_request_id}/approve")
+async def approve_change_request(change_request_id: str, approval: ConfigNoteChangeApproval, _: bool = Depends(verify_admin_token)):
+    """
+    Approve or reject a change request for a locked config note.
+    Superadmin only.
+    """
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        # Find the config note with this change request
+        note = await config_notes_collection.find_one({
+            "change_requests.id": change_request_id
+        })
+        
+        if not note:
+            raise HTTPException(status_code=404, detail="Change request not found")
+        
+        # Find the specific change request
+        change_request = None
+        for cr in note.get("change_requests", []):
+            if cr["id"] == change_request_id:
+                change_request = cr
+                break
+        
+        if not change_request:
+            raise HTTPException(status_code=404, detail="Change request not found")
+        
+        now = get_ist_now()
+        
+        if approval.approved:
+            # Approve and apply the change
+            update_changes = {
+                "value": change_request.get("new_value"),
+                "updated_at": now,
+                "updated_by": approval.approved_by or "superadmin"
+            }
+            
+            await config_notes_collection.update_one(
+                {"id": note["id"]},
+                {
+                    "$set": update_changes
+                }
+            )
+            
+            # Update the change request status
+            await config_notes_collection.update_one(
+                {"id": note["id"], "change_requests.id": change_request_id},
+                {
+                    "$set": {
+                        "change_requests.$.status": "approved",
+                        "change_requests.$.approved_by": approval.approved_by or "superadmin",
+                        "change_requests.$.approved_at": now,
+                        "change_requests.$.approval_reason": approval.approval_reason
+                    }
+                }
+            )
+            
+            message = f"Change request approved and applied to '{note.get('key')}'."
+        else:
+            # Reject the change
+            await config_notes_collection.update_one(
+                {"id": note["id"], "change_requests.id": change_request_id},
+                {
+                    "$set": {
+                        "change_requests.$.status": "rejected",
+                        "change_requests.$.approved_by": approval.approved_by or "superadmin",
+                        "change_requests.$.approved_at": now,
+                        "change_requests.$.approval_reason": approval.approval_reason
+                    }
+                }
+            )
+            
+            message = f"Change request rejected for '{note.get('key')}'."
+        
+        return {
+            "success": True,
+            "message": message,
+            "status": "approved" if approval.approved else "rejected"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"❌ Error approving change request: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error approving change request: {str(e)}")
+
+# Delete a config note (admin only)
+@api_router.delete("/admin/config-notes/{note_id}")
+async def delete_config_note(note_id: str, _: bool = Depends(verify_admin_token)):
+    """Delete a configuration note. Admin only."""
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        result = await config_notes_collection.delete_one({"id": note_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Config note not found")
+        
+        return {
+            "success": True,
+            "message": "Config note deleted successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"❌ Error deleting config note: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting config note: {str(e)}")
+
+# Get pending change requests (admin only)
+@api_router.get("/admin/config-notes/change-requests/pending")
+async def get_pending_change_requests(_: bool = Depends(verify_admin_token)):
+    """Get all pending change requests. Admin only."""
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        notes = await config_notes_collection.find(
+            {"change_requests.status": "pending"}
+        ).to_list(None)
+        
+        pending_requests = []
+        for note in notes:
+            for cr in note.get("change_requests", []):
+                if cr.get("status") == "pending":
+                    cr["config_note_key"] = note.get("key")
+                    pending_requests.append(cr)
+        
+        return {
+            "success": True,
+            "count": len(pending_requests),
+            "pending_requests": pending_requests
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"❌ Error fetching pending change requests: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching pending change requests: {str(e)}")
+
+# ==================== END CONFIGURATION NOTES ENDPOINTS ====================
 
 # Get all clients (admin only)
 @api_router.get("/admin/clients")
