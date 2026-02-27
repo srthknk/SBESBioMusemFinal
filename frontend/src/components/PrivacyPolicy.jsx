@@ -236,12 +236,15 @@ const PrivacyPolicy = ({ isDark }) => {
               We collect aggregated visitor data to understand user behavior, improve website performance, and enhance user experience. This data is used exclusively for internal administrative and analytical purposes through our Visitors Analytics Dashboard.
             </p>
             
-            <div className={`bg-gray-800 border border-gray-700 rounded-lg p-4 sm:p-6 mb-4`}>
-              <h4 className={`font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            <div style={{
+              backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(30, 58, 138, 0.95)',
+              borderColor: isDark ? '#4b5563' : 'rgba(30, 58, 138, 0.95)'
+            }} className="border rounded-lg p-4 sm:p-6 mb-4">
+              <h4 className={`font-semibold mb-3 ${isDark ? 'text-white' : 'text-white'}`}>
                 <i className="fa-solid fa-database mr-2" style={{color: '#8b5cf6'}}></i>
                 Data Collected for Analytics
               </h4>
-              <ul className={`list-disc list-inside space-y-2 text-sm sm:text-base ${isDark ? 'text-gray-300' : 'text-gray-700'} ml-2`}>
+              <ul className={`list-disc list-inside space-y-2 text-sm sm:text-base ${isDark ? 'text-gray-300' : 'text-white'} ml-2`}>
                 <li><strong>Device Information:</strong> Device type (Mobile, Tablet, Desktop), phone model, operating system, browser type and version</li>
                 <li><strong>Unique Device Identifier:</strong> Device fingerprint created from browser characteristics (not personally identifiable)</li>
                 <li><strong>Geographic Data:</strong> Country and city derived from IP address for traffic distribution analysis</li>
@@ -252,12 +255,15 @@ const PrivacyPolicy = ({ isDark }) => {
               </ul>
             </div>
 
-            <div className={`bg-gray-800 border border-gray-700 rounded-lg p-4 sm:p-6 mb-4`}>
-              <h4 className={`font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            <div style={{
+              backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(30, 58, 138, 0.95)',
+              borderColor: isDark ? '#4b5563' : 'rgba(30, 58, 138, 0.95)'
+            }} className="border rounded-lg p-4 sm:p-6 mb-4">
+              <h4 className={`font-semibold mb-3 ${isDark ? 'text-white' : 'text-white'}`}>
                 <i className="fa-solid fa-chart-line mr-2" style={{color: '#3b82f6'}}></i>
                 How Analytics Data is Used
               </h4>
-              <ul className={`list-disc list-inside space-y-2 text-sm sm:text-base ${isDark ? 'text-gray-300' : 'text-gray-700'} ml-2`}>
+              <ul className={`list-disc list-inside space-y-2 text-sm sm:text-base ${isDark ? 'text-gray-300' : 'text-white'} ml-2`}>
                 <li>Measuring website traffic and visitor engagement patterns</li>
                 <li>Identifying popular content and user preferences</li>
                 <li>Monitoring website performance and load times across devices</li>
@@ -269,12 +275,15 @@ const PrivacyPolicy = ({ isDark }) => {
               </ul>
             </div>
 
-            <div className={`bg-gray-800 border border-gray-700 rounded-lg p-4 sm:p-6`}>
-              <h4 className={`font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            <div style={{
+              backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(30, 58, 138, 0.95)',
+              borderColor: isDark ? '#4b5563' : 'rgba(30, 58, 138, 0.95)'
+            }} className="border rounded-lg p-4 sm:p-6">
+              <h4 className={`font-semibold mb-3 ${isDark ? 'text-white' : 'text-white'}`}>
                 <i className="fa-solid fa-shield-heart mr-2" style={{color: '#10b981'}}></i>
                 Privacy Safeguards
               </h4>
-              <ul className={`list-disc list-inside space-y-2 text-sm sm:text-base ${isDark ? 'text-gray-300' : 'text-gray-700'} ml-2`}>
+              <ul className={`list-disc list-inside space-y-2 text-sm sm:text-base ${isDark ? 'text-gray-300' : 'text-white'} ml-2`}>
                 <li><strong>No Personal Identification:</strong> Device fingerprints are anonymized and cannot be traced to individuals</li>
                 <li><strong>Aggregated Analysis:</strong> Data is primarily analyzed in aggregate form to protect individual privacy</li>
                 <li><strong>Admin-Only Access:</strong> Visitor data is accessible only to authorized administrators through secured authentication</li>
