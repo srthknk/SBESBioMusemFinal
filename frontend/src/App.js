@@ -829,7 +829,7 @@ const OrganismDetail = () => {
                 fontFamily: siteSettings?.font_family || 'Poppins, system-ui, sans-serif'
               }}
             >
-              {siteSettings?.website_name || 'BioMuseum'}
+              {siteSettings?.website_name || 'ZooMuseum'}
             </h1>
             <div className="flex gap-2 sm:gap-3 items-center">
               <button
