@@ -16,6 +16,7 @@ import BlogAdminPanel from './components/BlogAdminPanel';
 import PersonalizationAdminPanel from './components/PersonalizationAdminPanel';
 import AdminUsersAdminPanel from './components/AdminUsersAdminPanel';
 import MaintenanceAdminPanel from './components/MaintenanceAdminPanel';
+import PaymentsAdminTab from './components/PaymentsAdminTab';
 import VisitorsAdminPanel from './components/VisitorsAdminPanel';
 import ConfigNotesAdminPanel from './components/ConfigNotesAdminPanel';
 import BioMuseumAIChatbot from './components/BioMuseumAIChatbot';
@@ -1509,10 +1510,15 @@ const AdminPanel = () => {
   const [editingOrganism, setEditingOrganism] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [approvedOrganismData, setApprovedOrganismData] = useState(null);
+  const [unreadPaymentsCount, setUnreadPaymentsCount] = useState(0);
 
   useEffect(() => {
     if (isAdmin) {
       fetchOrganisms();
+      fetchUnreadPaymentsCount();
+      // Check for new payments every minute
+      const interval = setInterval(fetchUnreadPaymentsCount, 60000);
+      return () => clearInterval(interval);
     }
   }, [isAdmin]);
 
@@ -1522,6 +1528,19 @@ const AdminPanel = () => {
       setOrganisms(response.data);
     } catch (error) {
       console.error('Error fetching organisms:', error);
+    }
+  };
+
+  const fetchUnreadPaymentsCount = async () => {
+    try {
+      const response = await axios.get(`${API}/admin/payments/unread/count`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setUnreadPaymentsCount(response.data.unread_count || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching unread payments count:', error);
     }
   };
 
@@ -1656,6 +1675,21 @@ const AdminPanel = () => {
           <div className="flex items-center justify-between py-3 gap-4">
             {/* Left: Organism Management Buttons */}
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveView('payments')}
+                className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all relative ${activeView === 'payments' 
+                  ? `${isDark ? 'bg-green-600 text-white' : 'bg-green-200 text-green-900'}` 
+                  : `${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}`}
+              >
+                <i className="fa-solid fa-receipt mr-2"></i>Payments
+                {unreadPaymentsCount > 0 && (
+                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ml-1 ${
+                    isDark ? 'bg-red-600 text-white' : 'bg-red-500 text-white'
+                  }`}>
+                    {unreadPaymentsCount}
+                  </span>
+                )}
+              </button>
               <button
                 onClick={() => setActiveView('manage')}
                 className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${activeView === 'manage' 
@@ -1860,6 +1894,12 @@ const AdminPanel = () => {
         )}
         {activeView === 'config-notes' && (
           <ConfigNotesAdminPanel
+            token={token}
+            isDark={isDark}
+          />
+        )}
+        {activeView === 'payments' && (
+          <PaymentsAdminTab
             token={token}
             isDark={isDark}
           />

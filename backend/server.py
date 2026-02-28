@@ -75,10 +75,11 @@ admin_sessions_collection = None
 maintenance_controls = None
 visitors_collection = None
 config_notes_collection = None
+payments_collection = None
 mongodb_connected = False
 
 async def init_mongodb():
-    global db, organisms_collection, suggestions_collection, biotube_videos_collection, video_suggestions_collection, video_comments_collection, blogs_collection, blog_suggestions_collection, gmail_users_collection, site_settings_collection, admins_collection, admin_sessions_collection, maintenance_controls, visitors_collection, config_notes_collection, mongodb_connected
+    global db, organisms_collection, suggestions_collection, biotube_videos_collection, video_suggestions_collection, video_comments_collection, blogs_collection, blog_suggestions_collection, gmail_users_collection, site_settings_collection, admins_collection, admin_sessions_collection, maintenance_controls, visitors_collection, config_notes_collection, payments_collection, mongodb_connected
     max_retries = 15  # Increased from 10 to 15
     retry_count = 0
     
@@ -133,6 +134,7 @@ async def init_mongodb():
             maintenance_controls = db.maintenance_controls
             visitors_collection = db.visitors
             config_notes_collection = db.config_notes
+            payments_collection = db.payments
             
             # Test that we can actually query
             test_count = await organisms_collection.count_documents({})
@@ -3446,6 +3448,54 @@ class MaintenanceStatusResponse(BaseModel):
     updated_at: str
     closable: bool
 
+# ==================== PAYMENT MODELS ====================
+
+class Payment(BaseModel):
+    """Payment announcement model"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    amount: float  # Payment amount in rupees
+    note: str  # Payment description/note
+    description: Optional[str] = ""  # Additional details
+    payment_method: Optional[str] = "UPI"  # UPI, Bank Transfer, Card, etc.
+    payment_date: Optional[str] = None  # When payment is due
+    reference_number: Optional[str] = None  # Invoice/Receipt number
+    category: Optional[str] = "General"  # General, Maintenance, Subscription, etc.
+    status: str = "pending"  # pending, completed, failed
+    is_read: bool = False  # For notification badge in admin panel
+    priority: str = "normal"  # low, normal, high, urgent
+    image_url: Optional[str] = None  # QR code or payment image URL (base64 or web URL)
+    created_at: str = Field(default_factory=get_ist_now)
+    created_by: str = "superadmin"  # Who created this announcement
+    updated_at: str = Field(default_factory=get_ist_now)
+    updated_by: Optional[str] = None
+
+class PaymentCreate(BaseModel):
+    """Request model for creating a payment announcement"""
+    amount: float
+    note: str
+    description: Optional[str] = ""
+    payment_method: Optional[str] = "UPI"
+    payment_date: Optional[str] = None
+    reference_number: Optional[str] = None
+    category: Optional[str] = "General"
+    status: Optional[str] = "pending"
+    priority: Optional[str] = "normal"
+    image_url: Optional[str] = None  # QR code or payment image URL
+
+class PaymentUpdate(BaseModel):
+    """Request model for updating a payment"""
+    amount: Optional[float] = None
+    note: Optional[str] = None
+    description: Optional[str] = None
+    payment_method: Optional[str] = None
+    payment_date: Optional[str] = None
+    reference_number: Optional[str] = None
+    category: Optional[str] = None
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    image_url: Optional[str] = None
+    is_read: Optional[bool] = None
+
 # Update maintenance status (admin only) - Maintenance Admin Endpoint
 @api_router.post("/maintenance/admin/update-status")
 async def admin_update_maintenance_status(update: MaintenanceUpdate, _: bool = Depends(verify_admin_token)):
@@ -3707,6 +3757,242 @@ async def create_client(client: ClientStatus, _: bool = Depends(verify_admin_tok
         }
     except Exception as e:
         logging.error(f"Error updating client status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== PAYMENTS ENDPOINTS ====================
+
+# Create a new payment announcement (admin only)
+@api_router.post("/admin/payments")
+async def create_payment(payment: PaymentCreate, _: bool = Depends(verify_admin_token)):
+    """
+    Create a new payment announcement. Admin only.
+    This creates a notification that appears in the admin panel.
+    """
+    try:
+        if payments_collection is None:
+            logging.error("payments_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized.")
+        
+        # Validate amount
+        if payment.amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+        
+        # Validate note
+        if not payment.note or len(payment.note.strip()) == 0:
+            raise HTTPException(status_code=400, detail="Payment note is required")
+        
+        now = get_ist_now()
+        payment_doc = {
+            "_id": str(uuid.uuid4()),
+            "amount": float(payment.amount),
+            "note": payment.note,
+            "description": payment.description or "",
+            "payment_method": payment.payment_method or "UPI",
+            "payment_date": payment.payment_date,
+            "reference_number": payment.reference_number,
+            "category": payment.category or "General",
+            "status": payment.status or "pending",
+            "is_read": False,
+            "priority": payment.priority or "normal",
+            "image_url": payment.image_url,
+            "created_at": now,
+            "created_by": "superadmin",
+            "updated_at": now,
+            "updated_by": None
+        }
+        
+        result = await payments_collection.insert_one(payment_doc)
+        
+        logging.info(f"[PAYMENT] New payment created: ₹{payment.amount} - {payment.note}")
+        
+        return {
+            "success": True,
+            "message": "Payment announcement created successfully",
+            "payment_id": payment_doc["_id"],
+            "amount": payment.amount,
+            "created_at": now
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error creating payment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get all payments (admin only)
+@api_router.get("/admin/payments")
+async def get_all_payments(_: bool = Depends(verify_admin_token)):
+    """
+    Get all payment announcements. Admin only.
+    Returns payments sorted by most recent first.
+    """
+    try:
+        if payments_collection is None:
+            logging.error("payments_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized.")
+        
+        payments = await payments_collection.find().sort("created_at", -1).to_list(1000)
+        
+        # Convert _id to id for consistency
+        for payment in payments:
+            payment["id"] = payment.pop("_id", "")
+        
+        unread_count = sum(1 for p in payments if not p.get("is_read", False))
+        
+        return {
+            "success": True,
+            "payments": payments,
+            "total": len(payments),
+            "unread_count": unread_count
+        }
+    except Exception as e:
+        logging.error(f"Error fetching payments: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get unread payments count (for badge notification)
+@api_router.get("/admin/payments/unread/count")
+async def get_unread_payments_count(_: bool = Depends(verify_admin_token)):
+    """
+    Get count of unread payment announcements. Used for badge notification.
+    """
+    try:
+        if payments_collection is None:
+            raise HTTPException(status_code=500, detail="Database not initialized.")
+        
+        unread_count = await payments_collection.count_documents({"is_read": False})
+        
+        return {
+            "success": True,
+            "unread_count": unread_count,
+            "has_unread": unread_count > 0
+        }
+    except Exception as e:
+        logging.error(f"Error fetching unread payments count: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update a payment (admin only)
+@api_router.put("/admin/payments/{payment_id}")
+async def update_payment(payment_id: str, payment: PaymentUpdate, _: bool = Depends(verify_admin_token)):
+    """
+    Update a payment announcement. Admin only.
+    """
+    try:
+        if payments_collection is None:
+            raise HTTPException(status_code=500, detail="Database not initialized.")
+        
+        # Check if payment exists
+        existing_payment = await payments_collection.find_one({"_id": payment_id})
+        if not existing_payment:
+            raise HTTPException(status_code=404, detail="Payment not found")
+        
+        # Build update data (only include provided fields)
+        update_data = {}
+        if payment.amount is not None and payment.amount > 0:
+            update_data["amount"] = float(payment.amount)
+        if payment.note is not None:
+            update_data["note"] = payment.note
+        if payment.description is not None:
+            update_data["description"] = payment.description
+        if payment.payment_method is not None:
+            update_data["payment_method"] = payment.payment_method
+        if payment.payment_date is not None:
+            update_data["payment_date"] = payment.payment_date
+        if payment.reference_number is not None:
+            update_data["reference_number"] = payment.reference_number
+        if payment.category is not None:
+            update_data["category"] = payment.category
+        if payment.status is not None:
+            update_data["status"] = payment.status
+        if payment.is_read is not None:
+            update_data["is_read"] = payment.is_read
+        if payment.priority is not None:
+            update_data["priority"] = payment.priority
+        if payment.image_url is not None:
+            update_data["image_url"] = payment.image_url
+        
+        update_data["updated_at"] = get_ist_now()
+        update_data["updated_by"] = "superadmin"
+        
+        result = await payments_collection.update_one(
+            {"_id": payment_id},
+            {"$set": update_data}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=400, detail="No changes made")
+        
+        logging.info(f"[PAYMENT] Payment updated: {payment_id}")
+        
+        return {
+            "success": True,
+            "message": "Payment updated successfully",
+            "payment_id": payment_id,
+            "updated_at": update_data["updated_at"]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating payment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Delete a payment (admin only)
+@api_router.delete("/admin/payments/{payment_id}")
+async def delete_payment(payment_id: str, _: bool = Depends(verify_admin_token)):
+    """
+    Delete a payment announcement. Admin only.
+    """
+    try:
+        if payments_collection is None:
+            raise HTTPException(status_code=500, detail="Database not initialized.")
+        
+        # Check if payment exists
+        existing_payment = await payments_collection.find_one({"_id": payment_id})
+        if not existing_payment:
+            raise HTTPException(status_code=404, detail="Payment not found")
+        
+        result = await payments_collection.delete_one({"_id": payment_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=400, detail="Failed to delete payment")
+        
+        logging.info(f"[PAYMENT] Payment deleted: {payment_id}")
+        
+        return {
+            "success": True,
+            "message": "Payment deleted successfully",
+            "payment_id": payment_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error deleting payment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Mark payment as read (admin only)
+@api_router.put("/admin/payments/{payment_id}/mark-read")
+async def mark_payment_as_read(payment_id: str, _: bool = Depends(verify_admin_token)):
+    """
+    Mark a payment as read. Used to clear notification badge.
+    """
+    try:
+        if payments_collection is None:
+            raise HTTPException(status_code=500, detail="Database not initialized.")
+        
+        result = await payments_collection.update_one(
+            {"_id": payment_id},
+            {"$set": {"is_read": True, "updated_at": get_ist_now()}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Payment not found")
+        
+        return {
+            "success": True,
+            "message": "Payment marked as read"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error marking payment as read: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== CONFIGURATION NOTES ENDPOINTS ====================
