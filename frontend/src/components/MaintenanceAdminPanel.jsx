@@ -587,12 +587,12 @@ const MaintenanceAdminPanel = ({ isDark = false }) => {
       </header>
 
       {/* Tab Navigation */}
-      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky top-0 z-20`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
+      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky top-0 z-20 overflow-x-auto overflow-y-hidden`}>
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-max sm:min-w-0">
             <button
               onClick={() => setActiveTab('maintenance')}
-              className={`px-6 py-4 font-semibold transition-all border-b-2 ${
+              className={`px-3 sm:px-6 py-4 font-semibold transition-all border-b-2 whitespace-nowrap ${`
                 activeTab === 'maintenance'
                   ? `${isDark ? 'text-purple-400 border-purple-500' : 'text-purple-600 border-purple-600'}`
                   : `${isDark ? 'text-gray-400 border-transparent hover:text-gray-300' : 'text-gray-600 border-transparent hover:text-gray-900'}`
@@ -603,7 +603,7 @@ const MaintenanceAdminPanel = ({ isDark = false }) => {
             </button>
             <button
               onClick={() => setActiveTab('payments')}
-              className={`px-6 py-4 font-semibold transition-all border-b-2 ${
+              className={`px-3 sm:px-6 py-4 font-semibold transition-all border-b-2 whitespace-nowrap ${`
                 activeTab === 'payments'
                   ? `${isDark ? 'text-green-400 border-green-500' : 'text-green-600 border-green-600'}`
                   : `${isDark ? 'text-gray-400 border-transparent hover:text-gray-300' : 'text-gray-600 border-transparent hover:text-gray-900'}`

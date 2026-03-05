@@ -1667,17 +1667,31 @@ const AdminPanel = () => {
         .hamburger-menu::-webkit-scrollbar-thumb:hover {
           background: rgba(156, 163, 175, 0.7);
         }
+        /* Admin Nav Bar Scrolling Styles */
+        .admin-nav-scroll {
+          scroll-behavior: smooth;
+          -webkit-overflow-scrolling: touch;
+        }
+        /* Hide scrollbar for horizontal nav on mobile but keep it functional */
+        @media (max-width: 768px) {
+          .admin-nav-scroll {
+            scrollbar-width: none;
+          }
+          .admin-nav-scroll::-webkit-scrollbar {
+            display: none;
+          }
+        }
       `}</style>
       
-      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky top-16 z-30`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative">
+      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky top-16 z-30 overflow-x-auto overflow-y-hidden admin-nav-scroll`}>
+        <div className="px-4 sm:px-6 relative min-w-full">
           {/* Organism Management Horizontal Bar */}
-          <div className="flex items-center justify-between py-3 gap-4">
-            {/* Left: Organism Management Buttons */}
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between py-3 gap-2 sm:gap-4">
+            {/* Left: Organism Management Buttons - Scrollable on Mobile */}
+            <div className="flex items-center gap-1 sm:gap-2">
               <button
                 onClick={() => setActiveView('payments')}
-                className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all relative ${activeView === 'payments' 
+                className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-sm whitespace-nowrap transition-all relative flex-shrink-0 ${activeView === 'payments' 
                   ? `${isDark ? 'bg-green-600 text-white' : 'bg-green-200 text-green-900'}` 
                   : `${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}`}
               >
@@ -1692,7 +1706,7 @@ const AdminPanel = () => {
               </button>
               <button
                 onClick={() => setActiveView('manage')}
-                className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${activeView === 'manage' 
+                className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeView === 'manage' 
                   ? `${isDark ? 'bg-purple-600 text-white' : 'bg-purple-200 text-purple-900'}` 
                   : `${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}`}
               >
@@ -1700,7 +1714,7 @@ const AdminPanel = () => {
               </button>
               <button
                 onClick={() => setActiveView('add')}
-                className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${activeView === 'add' 
+                className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeView === 'add' 
                   ? `${isDark ? 'bg-purple-600 text-white' : 'bg-purple-200 text-purple-900'}` 
                   : `${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}`}
               >
@@ -1708,7 +1722,7 @@ const AdminPanel = () => {
               </button>
               <button
                 onClick={() => setActiveView('print')}
-                className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${activeView === 'print' 
+                className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-xs sm:text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeView === 'print' 
                   ? `${isDark ? 'bg-purple-600 text-white' : 'bg-purple-200 text-purple-900'}` 
                   : `${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}`}
               >
