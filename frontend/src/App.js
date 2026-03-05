@@ -1642,19 +1642,19 @@ const AdminPanel = () => {
           animation: slideUp 0.3s ease-out;
         }
         .hamburger-menu {
-          position: fixed;
-          top: 70px;
+          position: absolute;
+          top: 100%;
           right: 0;
-          left: 0;
-          bottom: 0;
-          min-width: 100%;
-          max-width: 100%;
-          max-height: calc(100vh - 70px);
+          left: auto;
+          bottom: auto;
+          min-width: 280px;
+          max-width: 90vw;
+          max-height: 70vh;
           overflow-y: auto;
           overflow-x: hidden;
-          box-shadow: none;
-          border-radius: 0;
-          margin-top: 0;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+          border-radius: 8px;
+          margin-top: 8px;
           z-index: 9999;
         }
         /* Desktop hamburger menu */
@@ -1713,6 +1713,7 @@ const AdminPanel = () => {
           background-color: rgba(0, 0, 0, 0.5);
           z-index: 9998;
           animation: fadeIn 0.2s ease-out;
+          display: none;
         }
         @keyframes fadeIn {
           from {
@@ -1789,14 +1790,6 @@ const AdminPanel = () => {
               >
                 <i className={`fa-solid transition-transform duration-300 ${mobileMenuOpen ? 'fa-times' : 'fa-bars'}`}></i>
               </button>
-
-              {/* Backdrop Overlay */}
-              {mobileMenuOpen && (
-                <div
-                  className="menu-backdrop"
-                  onClick={() => setMobileMenuOpen(false)}
-                />
-              )}
 
               {/* Dropdown Menu */}
               {mobileMenuOpen && (
