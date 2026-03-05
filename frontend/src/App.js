@@ -456,24 +456,46 @@ const Homepage = () => {
             Discover the wonders of life science through our interactive biology museum. Learn about diverse organisms and their fascinating characteristics from {siteSettings?.college_name || 'SBES College of Science'}.
           </p>
 
-          {/* Explore Button */}
-          <button
-            onClick={() => navigate('/organisms')}
-            className="px-5 sm:px-7 md:px-9 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm md:text-base font-bold rounded-lg transition-all duration-300 ease-out transform hover:scale-105 hover:shadow-2xl active:scale-95"
-            style={{
-              backgroundColor: isDark ? '#000000' : '#ffffff',
-              color: isDark ? '#ffffff' : '#000000',
-              boxShadow: isDark ? '0 4px 20px rgba(0, 0, 0, 0.6)' : '0 4px 20px rgba(0, 0, 0, 0.2)'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = isDark ? '#1a1a1a' : '#f0f0f0';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = isDark ? '#000000' : '#ffffff';
-            }}
-          >
-            <i className="fa-solid fa-compass mr-2"></i>Explore
-          </button>
+          {/* Buttons Container */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center px-2">
+            {/* Explore Button */}
+            <button
+              onClick={() => navigate('/organisms')}
+              className="w-full sm:w-auto px-5 sm:px-7 md:px-9 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm md:text-base font-bold rounded-lg transition-all duration-300 ease-out transform hover:scale-105 hover:shadow-2xl active:scale-95"
+              style={{
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                color: isDark ? '#ffffff' : '#000000',
+                boxShadow: isDark ? '0 4px 20px rgba(0, 0, 0, 0.6)' : '0 4px 20px rgba(0, 0, 0, 0.2)'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = isDark ? '#1a1a1a' : '#f0f0f0';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = isDark ? '#000000' : '#ffffff';
+              }}
+            >
+              <i className="fa-solid fa-compass mr-2"></i>Explore
+            </button>
+
+            {/* Journey Button */}
+            <button
+              onClick={() => navigate('/about')}
+              className="w-full sm:w-auto px-5 sm:px-7 md:px-9 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm md:text-base font-bold rounded-lg transition-all duration-300 ease-out transform hover:scale-105 hover:shadow-2xl active:scale-95"
+              style={{
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                color: isDark ? '#ffffff' : '#000000',
+                boxShadow: isDark ? '0 4px 20px rgba(0, 0, 0, 0.6)' : '0 4px 20px rgba(0, 0, 0, 0.2)'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = isDark ? '#1a1a1a' : '#f0f0f0';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = isDark ? '#000000' : '#ffffff';
+              }}
+            >
+              <i className="fa-solid fa-map-location-dot mr-2"></i>Journey
+            </button>
+          </div>
         </div>
       </div>
 
