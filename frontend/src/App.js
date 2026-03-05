@@ -1642,38 +1642,38 @@ const AdminPanel = () => {
           animation: slideUp 0.3s ease-out;
         }
         .hamburger-menu {
-          position: absolute;
-          top: 100%;
-          right: 0;
+          position: fixed;
+          top: 65px;
+          right: 16px;
           left: auto;
           bottom: auto;
           min-width: 280px;
-          max-width: 90vw;
-          max-height: 70vh;
+          max-width: calc(100vw - 32px);
+          max-height: calc(100vh - 65px);
           overflow-y: auto;
           overflow-x: hidden;
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
           border-radius: 8px;
-          margin-top: 8px;
-          z-index: 9999;
+          margin-top: 0;
+          z-index: 999999 !important;
         }
-        /* Desktop hamburger menu */
+        /* Desktop hamburger menu same positioning */
         @media (min-width: 1024px) {
           .hamburger-menu {
-            position: absolute;
-            top: 100%;
-            right: 0;
+            position: fixed;
+            top: 65px;
+            right: 16px;
             left: auto;
             bottom: auto;
             min-width: 360px;
             max-width: 400px;
-            max-height: 70vh;
+            max-height: calc(100vh - 65px);
             overflow-y: auto;
             overflow-x: hidden;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
             border-radius: 8px;
-            margin-top: 8px;
-            z-index: 9999;
+            margin-top: 0;
+            z-index: 999999 !important;
           }
         }
         .hamburger-menu::-webkit-scrollbar {
@@ -1729,9 +1729,14 @@ const AdminPanel = () => {
             border-right: 1px solid rgba(0, 0, 0, 0.1);
           }
         }
+        /* High z-index for hamburger button */
+        .hamburger-btn-top {
+          position: relative;
+          z-index: 999999 !important;
+        }
       `}</style>
       
-      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky top-16 z-30 overflow-x-auto overflow-y-hidden admin-nav-scroll`}>
+      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky top-16 z-40 overflow-x-auto overflow-y-hidden admin-nav-scroll`}>
         <div className="px-4 sm:px-6 relative min-w-full">
           {/* Organism Management Horizontal Bar */}
           <div className="flex items-center justify-between py-3 gap-2 sm:gap-4">
@@ -1782,7 +1787,7 @@ const AdminPanel = () => {
             <div className="relative ml-auto">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all duration-200 relative z-50 ${
+                className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all duration-200 hamburger-btn-top ${
                   isDark
                     ? 'bg-gray-700 hover:bg-gray-600 text-white'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
@@ -1794,6 +1799,22 @@ const AdminPanel = () => {
               {/* Dropdown Menu */}
               {mobileMenuOpen && (
                 <div className={`hamburger-menu menu-open ${isDark ? 'bg-gray-700 border border-gray-600' : 'bg-white border border-gray-200'}`}>
+                  {/* Close Button at Top */}
+                  <div className={`px-4 py-2 border-b flex justify-between items-center ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+                    <span className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Menu</span>
+                    <button
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`p-2 rounded-lg transition-all flex items-center justify-center ${
+                        isDark
+                          ? 'bg-gray-600 hover:bg-gray-500 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                      }`}
+                      aria-label="Close menu"
+                    >
+                      <i className="fa-solid fa-times text-xl"></i>
+                    </button>
+                  </div>
+
                   {/* Analytics & Reports Section */}
                   <div className={`px-4 py-3 border-b ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
                     <div className={`text-xs font-bold px-2 py-1 mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -3759,7 +3780,7 @@ const ManageOrganisms = ({ organisms, token, isDark, onUpdate }) => {
     : organisms;
 
   const handleSelectSuggestion = (organism) => {
-    setSearchTerm('');
+    setSearchTerm(organism.name);
     setShowSuggestions(false);
   };
 
