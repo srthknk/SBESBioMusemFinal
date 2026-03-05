@@ -1642,17 +1642,39 @@ const AdminPanel = () => {
           animation: slideUp 0.3s ease-out;
         }
         .hamburger-menu {
-          position: absolute;
-          top: 100%;
+          position: fixed;
+          top: 70px;
           right: 0;
-          min-width: 320px;
-          max-width: 400px;
-          max-height: 70vh;
+          left: 0;
+          bottom: 0;
+          min-width: 100%;
+          max-width: 100%;
+          max-height: calc(100vh - 70px);
           overflow-y: auto;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-          border-radius: 8px;
-          margin-top: 8px;
-          z-index: 50;
+          overflow-x: hidden;
+          box-shadow: none;
+          border-radius: 0;
+          margin-top: 0;
+          z-index: 9999;
+        }
+        /* Desktop hamburger menu */
+        @media (min-width: 1024px) {
+          .hamburger-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            left: auto;
+            bottom: auto;
+            min-width: 360px;
+            max-width: 400px;
+            max-height: 70vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            border-radius: 8px;
+            margin-top: 8px;
+            z-index: 9999;
+          }
         }
         .hamburger-menu::-webkit-scrollbar {
           width: 6px;
@@ -1679,6 +1701,31 @@ const AdminPanel = () => {
           }
           .admin-nav-scroll::-webkit-scrollbar {
             display: none;
+          }
+        }
+        /* Menu backdrop */
+        .menu-backdrop {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          z-index: 9998;
+          animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        /* Mobile menu styling */
+        @media (max-width: 1023px) {
+          .hamburger-menu {
+            border-right: 1px solid rgba(0, 0, 0, 0.1);
           }
         }
       `}</style>
@@ -1731,10 +1778,10 @@ const AdminPanel = () => {
             </div>
 
             {/* Right: Hamburger Button */}
-            <div className="relative">
+            <div className="relative ml-auto">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all duration-200 ${
+                className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all duration-200 relative z-50 ${
                   isDark
                     ? 'bg-gray-700 hover:bg-gray-600 text-white'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
@@ -1742,6 +1789,14 @@ const AdminPanel = () => {
               >
                 <i className={`fa-solid transition-transform duration-300 ${mobileMenuOpen ? 'fa-times' : 'fa-bars'}`}></i>
               </button>
+
+              {/* Backdrop Overlay */}
+              {mobileMenuOpen && (
+                <div
+                  className="menu-backdrop"
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+              )}
 
               {/* Dropdown Menu */}
               {mobileMenuOpen && (
