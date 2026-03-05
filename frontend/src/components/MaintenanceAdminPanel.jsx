@@ -592,7 +592,7 @@ const MaintenanceAdminPanel = ({ isDark = false }) => {
           <div className="flex items-center gap-2 sm:gap-4 min-w-max sm:min-w-0">
             <button
               onClick={() => setActiveTab('maintenance')}
-              className={`px-3 sm:px-6 py-4 font-semibold transition-all border-b-2 whitespace-nowrap ${`
+              className={`px-3 sm:px-6 py-4 font-semibold transition-all border-b-2 whitespace-nowrap ${
                 activeTab === 'maintenance'
                   ? `${isDark ? 'text-purple-400 border-purple-500' : 'text-purple-600 border-purple-600'}`
                   : `${isDark ? 'text-gray-400 border-transparent hover:text-gray-300' : 'text-gray-600 border-transparent hover:text-gray-900'}`
@@ -603,7 +603,7 @@ const MaintenanceAdminPanel = ({ isDark = false }) => {
             </button>
             <button
               onClick={() => setActiveTab('payments')}
-              className={`px-3 sm:px-6 py-4 font-semibold transition-all border-b-2 whitespace-nowrap ${`
+              className={`px-3 sm:px-6 py-4 font-semibold transition-all border-b-2 whitespace-nowrap ${
                 activeTab === 'payments'
                   ? `${isDark ? 'text-green-400 border-green-500' : 'text-green-600 border-green-600'}`
                   : `${isDark ? 'text-gray-400 border-transparent hover:text-gray-300' : 'text-gray-600 border-transparent hover:text-gray-900'}`
