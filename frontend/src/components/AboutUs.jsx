@@ -114,7 +114,7 @@ const AboutUs = ({ isDark }) => {
                 <div className={`p-4 sm:p-6 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
                   <div className="text-2xl sm:text-3xl mb-3"><i className="fa-solid fa-book"></i></div>
                   <h4 className={`text-base sm:text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-black'}`}>
-                    Educational Contents
+                    Educational Content
                   </h4>
                   <p className={`text-xs sm:text-sm ${isDark ? 'text-gray-400' : 'text-black'}`}>
                     Access comprehensive information about morphology, physiology, and characteristics of various organisms.
@@ -144,7 +144,7 @@ const AboutUs = ({ isDark }) => {
             {/* Our History */}
             <div className="mb-8 sm:mb-12">
               <h3 className={`text-xl sm:text-2xl font-bold mb-4 sm:mb-6 ${isDark ? 'text-yellow-400' : 'text-gray-800'}`}>
-                Our Journey
+                Our Journey & History
               </h3>
               <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-50'} p-6 sm:p-8 rounded-lg`}>
                 <div className="space-y-4 sm:space-y-6">
