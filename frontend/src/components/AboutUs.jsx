@@ -117,7 +117,7 @@ const AboutUs = ({ isDark }) => {
                     Educational Content
                   </h4>
                   <p className={`text-xs sm:text-sm ${isDark ? 'text-gray-400' : 'text-black'}`}>
-                    Access comprehensive information about morphology, physiology, and characteristics of various organisms.
+                    Access to comprehensive information about morphology, physiology, and characteristics of various organisms.
                   </p>
                 </div>
                 <div className={`p-4 sm:p-6 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
