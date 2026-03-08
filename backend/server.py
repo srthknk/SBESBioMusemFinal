@@ -1,0 +1,4967 @@
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Query, Header, UploadFile, File
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from dotenv import load_dotenv
+from starlette.middleware.cors import CORSMiddleware
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import ASCENDING, DESCENDING
+import os
+import sys
+import logging
+from pathlib import Path
+from pydantic import BaseModel, Field, validator
+from typing import List, Optional
+import uuid
+from datetime import datetime, timedelta
+import pytz
+import qrcode
+import io
+import base64
+import hashlib
+import json
+import requests
+import ssl
+import asyncio
+import socket
+import dns.resolver
+import jwt
+
+# IST Timezone Configuration
+IST = pytz.timezone('Asia/Kolkata')
+
+def get_ist_now():
+    """Get current time in IST (Indian Standard Time) UTC+5:30"""
+    return datetime.now(IST).isoformat()
+
+# Google Generative AI - with graceful fallback
+try:
+    import google.generativeai as genai
+    HAS_GENAI = True
+except ImportError:
+    HAS_GENAI = False
+    genai = None
+
+# Ensure UTF-8 output on Windows
+if sys.platform == 'win32':
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
+# MongoDB setup - REQUIRED, no fallback
+MONGO_URL = os.environ.get('MONGO_URL')
+if not MONGO_URL:
+    raise ValueError("ERROR: MONGO_URL environment variable is not set. MongoDB is required.")
+
+# Google Gemini API Setup
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+if GEMINI_API_KEY and HAS_GENAI:
+    genai.configure(api_key=GEMINI_API_KEY)
+    print("[OK] Google Gemini API configured successfully")
+else:
+    print("[WARN] GEMINI_API_KEY not set - AI organism feature will not work")
+
+db = None
+organisms_collection = None
+suggestions_collection = None
+biotube_videos_collection = None
+video_suggestions_collection = None
+video_comments_collection = None
+blogs_collection = None
+blog_suggestions_collection = None
+gmail_users_collection = None
+site_settings_collection = None
+admins_collection = None
+admin_sessions_collection = None
+maintenance_controls = None
+visitors_collection = None
+config_notes_collection = None
+payments_collection = None
+mongodb_connected = False
+
+async def init_mongodb():
+    global db, organisms_collection, suggestions_collection, biotube_videos_collection, video_suggestions_collection, video_comments_collection, blogs_collection, blog_suggestions_collection, gmail_users_collection, site_settings_collection, admins_collection, admin_sessions_collection, maintenance_controls, visitors_collection, config_notes_collection, payments_collection, mongodb_connected
+    max_retries = 15  # Increased from 10 to 15
+    retry_count = 0
+    
+    # Test DNS resolution first
+    try:
+        print("[INFO] Testing DNS resolution for MongoDB...")
+        dns_records = await asyncio.get_event_loop().getaddrinfo(
+            'ac-ojscwyo-shard-00-00.m30zoo4.mongodb.net', 27017
+        )
+        print(f"[OK] DNS resolved successfully: {len(dns_records)} records found")
+    except Exception as e:
+        print(f"[WARN] DNS resolution failed: {str(e)[:100]}")
+    
+    while retry_count < max_retries:
+        try:
+            print(f"[INFO] Attempting MongoDB connection (attempt {retry_count + 1}/{max_retries})...")
+            
+            # Build connection options with extended timeouts for Render
+            client_kwargs = {
+                'serverSelectionTimeoutMS': 120000,     # 120 seconds
+                'connectTimeoutMS': 120000,              # 120 seconds
+                'socketTimeoutMS': 120000,               # 120 seconds
+                'maxPoolSize': 3,
+                'minPoolSize': 0,
+                'retryWrites': True,
+                'retryReads': True,
+                'ssl': True,
+                'tlsAllowInvalidCertificates': False,
+                'tlsAllowInvalidHostnames': False,
+                'appName': 'biomuseum',
+            }
+            
+            print(f"[INFO] MongoDB URL: {MONGO_URL[:50]}...")
+            client = AsyncIOMotorClient(MONGO_URL, **client_kwargs)
+            
+            # Verify connection with extended timeout
+            print("[INFO] Verifying MongoDB connection with ping command...")
+            await asyncio.wait_for(client.admin.command('ping'), timeout=120)
+            
+            db = client[os.environ.get('DB_NAME', 'biomuseum')]
+            organisms_collection = db.organisms
+            suggestions_collection = db.suggestions
+            biotube_videos_collection = db.biotube_videos
+            video_suggestions_collection = db.video_suggestions
+            video_comments_collection = db.video_comments
+            blogs_collection = db.blogs
+            blog_suggestions_collection = db.blog_suggestions
+            gmail_users_collection = db.gmail_users
+            site_settings_collection = db.site_settings
+            admins_collection = db.admins
+            admin_sessions_collection = db.admin_sessions
+            maintenance_controls = db.maintenance_controls
+            visitors_collection = db.visitors
+            config_notes_collection = db.config_notes
+            payments_collection = db.payments
+            
+            # Test that we can actually query
+            test_count = await organisms_collection.count_documents({})
+            test_suggestions = await suggestions_collection.count_documents({})
+            test_videos = await biotube_videos_collection.count_documents({})
+            test_video_suggestions = await video_suggestions_collection.count_documents({})
+            test_comments = await video_comments_collection.count_documents({})
+            
+            mongodb_connected = True
+            print(f"[OK] ✓ Successfully connected to MongoDB! Found {test_count} organisms, {test_videos} videos in database")
+            
+            # ==================== MIGRATION: Add new fields to site_settings ====================
+            try:
+                existing_settings = await site_settings_collection.find_one({"id": "site_settings"})
+                if existing_settings:
+                    # Check if new fields are missing
+                    needs_update = False
+                    update_data = {}
+                    
+                    if "primary_color" not in existing_settings:
+                        update_data["primary_color"] = "#7c3aed"
+                        needs_update = True
+                    if "secondary_color" not in existing_settings:
+                        update_data["secondary_color"] = "#3b82f6"
+                        needs_update = True
+                    if "font_url" not in existing_settings:
+                        update_data["font_url"] = ""
+                        needs_update = True
+                    if "font_family" not in existing_settings:
+                        update_data["font_family"] = "Poppins"
+                        needs_update = True
+                    if "department_name_font_size" not in existing_settings:
+                        update_data["department_name_font_size"] = 24
+                        needs_update = True
+                    
+                    if needs_update:
+                        update_data["updated_at"] = datetime.now().isoformat()
+                        await site_settings_collection.update_one(
+                            {"id": "site_settings"},
+                            {"$set": update_data}
+                        )
+                        print("[OK] ✓ Migrated site_settings with new color, font, and department font size fields")
+            except Exception as e:
+                print(f"[WARN] Failed to migrate site_settings: {str(e)[:100]}")
+            # ==================== END MIGRATION ====================
+            
+            # ==================== CREATE INDEXES ====================
+            try:
+                # Create sparse unique index on email (allows multiple null values)
+                await admins_collection.create_index("email", unique=True, sparse=True)
+                print("[OK] ✓ Created sparse unique index on admins.email field")
+                
+                # Create indexes for visitors collection
+                await visitors_collection.create_index("device_id")
+                await visitors_collection.create_index("timestamp")
+                await visitors_collection.create_index("country")
+                await visitors_collection.create_index([("timestamp", DESCENDING)])
+                print("[OK] ✓ Created indexes on visitors collection")
+            except Exception as e:
+                print(f"[WARN] Failed to create indexes: {str(e)[:100]}")
+            # ==================== END INDEXES ====================
+            
+            return
+            
+        except asyncio.TimeoutError:
+            retry_count += 1
+            print(f"[WARN] MongoDB connection timeout (attempt {retry_count}/{max_retries})")
+            if retry_count < max_retries:
+                wait_time = min(20, 5 ** (retry_count - 1) // 50)  # Increased wait time
+                print(f"[INFO] Retrying in {wait_time} seconds...")
+                await asyncio.sleep(wait_time)
+        except Exception as e:
+            retry_count += 1
+            error_msg = str(e)[:200]
+            print(f"[WARN] MongoDB connection error (attempt {retry_count}/{max_retries}): {error_msg}")
+            if retry_count < max_retries:
+                wait_time = min(20, 5 ** (retry_count - 1) // 50)  # Increased wait time
+                print(f"[INFO] Retrying in {wait_time} seconds...")
+                await asyncio.sleep(wait_time)
+    
+    # FAIL HARD - No fallback to unreliable local storage
+    error_msg = (
+        "\n" + "="*80 + "\n"
+        "[CRITICAL] ✗ MONGODB CONNECTION FAILED - APPLICATION WILL NOT START\n"
+        "\n"
+        "REQUIRED ACTIONS:\n"
+        "1. Configure MongoDB Atlas IP Whitelist IMMEDIATELY:\n"
+        "   - Go to: https://cloud.mongodb.com\n"
+        "   - Log in with your account\n"
+        "   - Select 'biomuseum' cluster\n"
+        "   - Go to 'Network Access' in the left sidebar\n"
+        "   - Click 'ADD IP ADDRESS'\n"
+        "   - Click 'ALLOW ACCESS FROM ANYWHERE'\n"
+        "   - Enter 0.0.0.0/0 (allows all IPs)\n"
+        "   - Click 'Confirm'\n"
+        "   - WAIT 5-10 MINUTES for the rule to apply\n"
+        "\n"
+        "2. Verify your MongoDB cluster is running:\n"
+        "   - Go to MongoDB Atlas Dashboard\n"
+        "   - Check cluster status is 'Running'\n"
+        "   - No alerts or warnings\n"
+        "\n"
+        "3. After whitelist is configured, REDEPLOY on Render:\n"
+        "   - Go to your Render dashboard\n"
+        "   - Click 'Manual Deploy' or push new commit to GitHub\n"
+        "\n"
+        "Current credentials:\n"
+        f"   - URL: {MONGO_URL[:60]}...\n"
+        f"   - Database: {os.environ.get('DB_NAME', 'biomuseum')}\n"
+        "\n"
+        "NOTE: This application requires MongoDB. There is NO fallback\n"
+        "to local storage. All data MUST persist in MongoDB.\n"
+        "="*80
+    )
+    print(error_msg)
+    raise RuntimeError("MongoDB connection failed after 15 retry attempts. See error message above.")
+
+# Define Models
+class OrganismBase(BaseModel):
+    name: str
+    scientific_name: str
+    classification: dict
+    morphology: str
+    physiology: str
+    images: List[str] = []
+    description: Optional[str] = ""
+
+class Organism(OrganismBase):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    qr_code_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    qr_code_image: Optional[str] = None
+    created_at: str = Field(default_factory=get_ist_now)
+    updated_at: str = Field(default_factory=get_ist_now)
+
+class OrganismCreate(OrganismBase):
+    pass
+
+class OrganismUpdate(BaseModel):
+    name: Optional[str] = None
+    scientific_name: Optional[str] = None
+    classification: Optional[dict] = None
+    morphology: Optional[str] = None
+    physiology: Optional[str] = None
+    images: Optional[List[str]] = None
+    description: Optional[str] = None
+
+class AdminLogin(BaseModel):
+    username: Optional[str] = None
+    phone_number: Optional[str] = None
+    password: str
+    
+    @validator('username', 'phone_number', pre=True, always=True)
+    def check_credentials(cls, v, values):
+        # At least one of username or phone_number must be provided
+        if not v and not values.get('username') and not values.get('phone_number'):
+            if 'username' in values or 'phone_number' in values:
+                # If we're validating phone_number, check if username is there
+                return v
+        return v
+
+class AdminToken(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+# Admin Management Models
+class AdminRegister(BaseModel):
+    username: str
+    password: str
+    phone_number: str
+    email: Optional[str] = None
+
+class AdminUpdate(BaseModel):
+    password: Optional[str] = None
+    phone_number: Optional[str] = None
+
+class AdminResponse(BaseModel):
+    id: str
+    username: str
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    role: str = "admin"
+    is_active: bool = True
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+# Gmail User Models
+class GmailUserCreate(BaseModel):
+    email: str
+    name: str
+    profile_picture: Optional[str] = None
+    google_id: str
+
+class GmailUser(GmailUserCreate):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    login_timestamp: str = Field(default_factory=get_ist_now)
+    last_active: str = Field(default_factory=get_ist_now)
+    is_active: bool = True
+    jwt_token: Optional[str] = None
+
+class GmailUserResponse(BaseModel):
+    id: str
+    email: str
+    name: str
+    profile_picture: Optional[str] = None
+    login_timestamp: str
+    last_active: str
+    is_active: bool
+
+class GoogleLoginRequest(BaseModel):
+    token: str  # Google ID token from frontend
+
+class GoogleLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: GmailUserResponse
+
+class Suggestion(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_name: str
+    organism_name: str
+    description: Optional[str] = ""
+    educational_level: str  # 11th, 12th, B.Sc 1st, B.Sc 2nd, B.Sc 3rd, B.Sc 4th, BCS, BCA, B.Voc, Teacher, etc.
+    status: str = "pending"  # pending, approved, rejected
+    ai_verification: Optional[dict] = None
+    created_at: str = Field(default_factory=get_ist_now)
+    updated_at: str = Field(default_factory=get_ist_now)
+
+class SuggestionCreate(BaseModel):
+    user_name: str
+    organism_name: str
+    description: Optional[str] = ""
+    educational_level: str  # Required field
+
+class VerifyOrganismRequest(BaseModel):
+    organism_name: str
+    scientific_name: Optional[str] = None
+
+class BiotubVideo(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    youtube_url: str
+    embed_code: str
+    kingdom: str
+    phylum: str
+    class_name: str
+    species: str
+    description: str = ""
+    thumbnail_url: str = ""
+    qr_code: str = ""
+    visibility: str = "public"  # public, private, draft
+    created_at: str = Field(default_factory=get_ist_now)
+    updated_at: str = Field(default_factory=get_ist_now)
+
+class BiotubVideoCreate(BaseModel):
+    title: str
+    youtube_url: str
+    kingdom: str
+    phylum: str
+    class_name: str
+    species: str
+    description: Optional[str] = ""
+    thumbnail_url: Optional[str] = ""
+
+class BiotubVideoUpdate(BaseModel):
+    title: Optional[str] = None
+    youtube_url: Optional[str] = None
+    kingdom: Optional[str] = None
+    phylum: Optional[str] = None
+    class_name: Optional[str] = None
+    species: Optional[str] = None
+    description: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    visibility: Optional[str] = None
+
+class VideoSuggestion(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_name: str
+    user_class: str
+    video_title: str
+    video_description: Optional[str] = ""
+    status: str = "pending"  # pending, reviewed, added, dismissed
+    created_at: str = Field(default_factory=get_ist_now)
+    updated_at: str = Field(default_factory=get_ist_now)
+
+class VideoSuggestionCreate(BaseModel):
+    user_name: str
+    user_class: str
+    video_title: str
+    video_description: Optional[str] = ""
+
+class VideoComment(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    video_id: str
+    user_name: str
+    user_class: str
+    text: str
+    likes: int = 0
+    created_at: str = Field(default_factory=get_ist_now)
+
+class VideoCommentCreate(BaseModel):
+    user_name: str
+    user_class: str
+    text: str
+
+class Blog(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    subject: str
+    content: str
+    image_url: str = ""
+    author: str = "ZooMuseum AI"
+    qr_code: str = ""
+    visibility: str = "public"  # public, private, draft
+    views: int = 0
+    likes: int = 0
+    created_at: str = Field(default_factory=get_ist_now)
+    updated_at: str = Field(default_factory=get_ist_now)
+    is_ai_generated: bool = True
+
+class BlogCreate(BaseModel):
+    title: str
+    subject: str
+    content: str
+    image_url: Optional[str] = ""
+    author: Optional[str] = "ZooMuseum"
+    is_ai_generated: Optional[bool] = True
+
+class BlogUpdate(BaseModel):
+    title: Optional[str] = None
+    subject: Optional[str] = None
+    content: Optional[str] = None
+    image_url: Optional[str] = None
+    author: Optional[str] = None
+    visibility: Optional[str] = None
+
+class BlogSuggestion(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_name: str
+    user_email: str
+    blog_subject: str
+    blog_description: Optional[str] = ""
+    status: str = "pending"  # pending, reviewed, added, dismissed
+    created_at: str = Field(default_factory=get_ist_now)
+    updated_at: str = Field(default_factory=get_ist_now)
+
+class BlogSuggestionCreate(BaseModel):
+    user_name: str
+    user_email: str
+    blog_subject: str
+
+class BiologyQuestion(BaseModel):
+    question: str = Field(..., description="User's biology question")
+    context: Optional[str] = None  # Optional: what organism they're asking about
+
+class BiologyAnswer(BaseModel):
+    answer: str
+    related_organisms: List[str] = []
+    confidence: str  # "high", "medium", "low"
+    suggestions: List[str] = []  # Follow-up questions
+    blog_description: Optional[str] = ""
+
+class BlogGenerateRequest(BaseModel):
+    subject: str
+    tone: Optional[str] = "educational"  # educational, casual, formal
+
+class SiteSettings(BaseModel):
+    """Site-wide personalization settings"""
+    id: str = Field(default_factory=lambda: "site_settings")
+    website_name: str = "ZooMuseum"
+    initiative_text: str = "An Initiative by"
+    college_name: str = "SBES College of Science"
+    department_name: str = "Zoology Department"
+    department_name_font_size: int = 24
+    logo_url: Optional[str] = None
+    primary_color: str = "#7c3aed"
+    secondary_color: str = "#3b82f6"
+    font_url: str = ""
+    font_family: str = "Poppins"
+    created_at: str = Field(default_factory=get_ist_now)
+    updated_at: str = Field(default_factory=get_ist_now)
+
+class SiteSettingsUpdate(BaseModel):
+    website_name: Optional[str] = None
+    initiative_text: Optional[str] = None
+    college_name: Optional[str] = None
+    department_name: Optional[str] = None
+    department_name_font_size: Optional[int] = None
+    logo_url: Optional[str] = None
+    primary_color: Optional[str] = None
+    secondary_color: Optional[str] = None
+    font_url: Optional[str] = None
+    font_family: Optional[str] = None
+    contact_email: Optional[str] = None
+    support_email: Optional[str] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+
+class ClientStatus(BaseModel):
+    """Model for client maintenance status"""
+    client_id: str
+    status: str = "active"  # active | due | suspended
+    message: str = ""
+    notes: str = ""
+    last_paid_date: Optional[str] = None
+    next_billing_date: Optional[str] = None
+    created_at: str = Field(default_factory=get_ist_now)
+    updated_at: str = Field(default_factory=get_ist_now)
+
+# ==================== CONFIGURATION NOTES MODELS ====================
+
+class ConfigNote(BaseModel):
+    """Configuration note for storing important deployment info"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    key: str  # e.g., "database_location", "frontend_server", "backend_server"
+    value: str  # The actual value
+    category: str = "general"  # general, database, deployment, server, api, security
+    description: Optional[str] = None  # Human-readable description
+    is_sensitive: bool = False  # Flag for sensitive data like passwords
+    is_locked: bool = False  # If True, can only be changed with superadmin approval
+    lock_reason: Optional[str] = None  # Why it's locked
+    change_requests: List[dict] = Field(default_factory=list)  # List of pending change requests
+    created_at: str = Field(default_factory=get_ist_now)
+    created_by: Optional[str] = None
+    updated_at: str = Field(default_factory=get_ist_now)
+    updated_by: Optional[str] = None
+    approval_required: bool = True  # If True, changes need superadmin approval
+    is_approved: bool = True  # New notes need approval
+
+class ConfigNoteCreate(BaseModel):
+    """Request model for creating a config note"""
+    key: str
+    value: str
+    category: Optional[str] = "general"
+    description: Optional[str] = None
+    is_sensitive: Optional[bool] = False
+    is_locked: Optional[bool] = False
+    lock_reason: Optional[str] = None
+
+class ConfigNoteUpdate(BaseModel):
+    """Request model for updating a config note"""
+    value: Optional[str] = None
+    key: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
+    is_sensitive: Optional[bool] = None
+    is_locked: Optional[bool] = None
+    lock_reason: Optional[str] = None
+
+class ConfigNoteChangeRequest(BaseModel):
+    """Model for requesting changes to a locked config note"""
+    config_note_id: str
+    new_value: str
+    reason: Optional[str] = None
+    requested_by: Optional[str] = None
+
+class ConfigNoteChangeApproval(BaseModel):
+    """Model for approving/rejecting change requests"""
+    approved: bool
+    approval_reason: Optional[str] = None
+    approved_by: Optional[str] = None
+
+# Database functions - MongoDB only (no JSON fallback)
+async def get_organisms_list():
+    return await organisms_collection.find().to_list(1000)
+
+async def insert_organism(organism_data):
+    await organisms_collection.insert_one(organism_data)
+
+async def find_organism(organism_id):
+    return await organisms_collection.find_one({"id": organism_id})
+
+async def find_organism_by_qr(qr_code_id):
+    return await organisms_collection.find_one({"qr_code_id": qr_code_id})
+
+async def update_organism_db(organism_id, update_data):
+    await organisms_collection.update_one({"id": organism_id}, {"$set": update_data})
+    return await organisms_collection.find_one({"id": organism_id})
+
+async def delete_organism_db(organism_id):
+    result = await organisms_collection.delete_one({"id": organism_id})
+    return result.deleted_count > 0
+
+# Helper functions
+def generate_qr_code(organism_id: str) -> str:
+    frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+    # Use first URL if multiple are configured
+    frontend_url = frontend_url.split(',')[0].strip()
+    qr_url = f"{frontend_url}/organism/{organism_id}"
+    
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(qr_url)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffer = io.BytesIO()
+    img.save(buffer, format='PNG')
+    img_str = base64.b64encode(buffer.getvalue()).decode()
+    return f"data:image/png;base64,{img_str}"
+
+security = HTTPBearer()
+
+async def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """
+    Verify admin token from:
+    1. Hardcoded username/password (admin:adminSBES)
+    2. Google OAuth authorized emails
+    3. Active sessions stored in database (for registered admins)
+    """
+    received_token = credentials.credentials
+    logging.info(f"[VERIFY TOKEN] Attempting to verify: {received_token[:20]}...")
+    
+    # Check for hardcoded username/password token
+    expected_token_admin = hashlib.sha256("admin:adminSBES".encode()).hexdigest()
+    if received_token == expected_token_admin:
+        logging.info("[VERIFY TOKEN] ✓ SUCCESS: Hardcoded admin token matched")
+        return True
+    
+    # Check for Google OAuth tokens from authorized emails
+    authorized_emails_str = os.environ.get('AUTHORIZED_ADMIN_EMAILS', '')
+    if authorized_emails_str:
+        authorized_emails = [e.strip().lower() for e in authorized_emails_str.split(',')]
+        for email in authorized_emails:
+            expected_token_email = hashlib.sha256(f"admin:{email}".encode()).hexdigest()
+            if received_token == expected_token_email:
+                logging.info(f"[VERIFY TOKEN] ✓ SUCCESS: Google OAuth email token matched {email}")
+                return True
+    
+    # Check against stored admin sessions in database
+    if admin_sessions_collection is not None:
+        try:
+            logging.info("[VERIFY TOKEN] Checking admin_sessions collection...")
+            current_time = datetime.now(pytz.timezone('Asia/Kolkata')).isoformat()
+            logging.debug(f"[VERIFY TOKEN] Current time: {current_time}")
+            
+            session = await admin_sessions_collection.find_one({
+                "token": received_token,
+                "expires_at": {"$gt": current_time}
+            })
+            
+            if session:
+                logging.info(f"[VERIFY TOKEN] ✓ SUCCESS: Found valid session for user '{session.get('username')}'")
+                return True
+            else:
+                # Check if token exists but is expired
+                expired_session = await admin_sessions_collection.find_one({"token": received_token})
+                if expired_session:
+                    logging.warning(f"[VERIFY TOKEN] ✗ EXPIRED: Token expired at {expired_session.get('expires_at')}, current: {current_time}")
+                else:
+                    logging.warning(f"[VERIFY TOKEN] ✗ NOT FOUND: Token not in admin_sessions collection")
+        except Exception as e:
+            logging.error(f"[VERIFY TOKEN] ✗ ERROR checking sessions: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        logging.error("[VERIFY TOKEN] ✗ CRITICAL: admin_sessions_collection is None!")
+    
+    # If no token matches, raise error
+    logging.error(f"[VERIFY TOKEN] ✗ FAILED: Token not verified: {received_token[:20]}...")
+    raise HTTPException(status_code=401, detail="Invalid admin token")
+
+def verify_gmail_token(authorization: str = Header(None)):
+    """
+    Verify Gmail JWT token and return user info.
+    Used for protecting authenticated endpoints.
+    """
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    
+    try:
+        parts = authorization.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            raise HTTPException(status_code=401, detail="Invalid authorization header")
+        
+        token = parts[1]
+        
+        try:
+            payload = jwt.decode(token, os.environ.get("JWT_SECRET_KEY", "biomuseum-secret"), algorithms=["HS256"])
+            return payload
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token expired")
+        except jwt.InvalidTokenError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Token verification error: {e}")
+        raise HTTPException(status_code=401, detail="Invalid authorization")
+
+# Create app and router
+app = FastAPI()
+
+# Configure CORS early - right after app creation
+cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,http://localhost:3001,http://localhost:5173').split(',')
+cors_origins = [origin.strip() for origin in cors_origins if origin.strip()]
+print(f"[CORS] Configured allowed origins: {cors_origins}")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ==================== HEALTH CHECK ENDPOINT ====================
+# Used by UptimeRobot to keep server awake on Render free tier
+# Does NOT call database - responds instantly
+# Must be defined BEFORE api_router for proper routing priority
+# Supports BOTH GET (returns JSON) and HEAD (returns empty 200 OK)
+@app.get("/health")
+async def health_check_get():
+    """
+    GET /health - Returns status JSON
+    
+    Returns 200 OK with JSON body immediately without touching database.
+    Used by API clients and monitoring tools.
+    Safe for production - no authentication required.
+    """
+    return {
+        "status": "ok",
+        "timestamp": get_ist_now(),
+        "service": "biomuseum-backend"
+    }
+
+@app.head("/health")
+async def health_check_head():
+    """
+    HEAD /health - Returns 200 OK with empty body
+    
+    Required for UptimeRobot free plan which uses HEAD requests.
+    HEAD is faster than GET (no response body).
+    Returns HTTP 200 immediately without touching database.
+    Safe for production - no authentication required.
+    """
+    # HEAD returns 200 OK with no response body
+    # FastAPI handles this automatically
+    return None
+# ==================== END HEALTH CHECK ====================
+
+api_router = APIRouter(prefix="/api")
+
+# Async function to fetch images from web
+async def get_images_from_unsplash(query: str, max_images: int = 5) -> List[str]:
+    """
+    Fetch images from Unsplash API
+    Returns list of image URLs directly (not base64)
+    """
+    try:
+        # Use Unsplash API with access key
+        unsplash_access_key = os.getenv("UNSPLASH_ACCESS_KEY")
+        
+        if not unsplash_access_key:
+            logging.warning("UNSPLASH_ACCESS_KEY not configured, returning empty list")
+            return []
+        
+        # Unsplash API endpoint
+        unsplash_url = "https://api.unsplash.com/search/photos"
+        
+        headers = {
+            'Authorization': f'Client-ID {unsplash_access_key}',
+            'Accept-Version': 'v1'
+        }
+        
+        params = {
+            'query': query,
+            'per_page': max_images,
+            'order_by': 'relevant'
+        }
+        
+        response = requests.get(unsplash_url, headers=headers, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            images = []
+            
+            if 'results' in data:
+                for photo in data['results']:
+                    # Get the regular size URL (good balance between quality and size)
+                    if 'urls' in photo and 'regular' in photo['urls']:
+                        img_url = photo['urls']['regular']
+                        images.append(img_url)
+                        logging.info(f"Found image from Unsplash: {img_url[:50]}...")
+            
+            return images[:max_images]
+        else:
+            logging.warning(f"Unsplash API error: {response.status_code} - {response.text}")
+            return []
+            
+    except Exception as e:
+        logging.warning(f"Error fetching images from Unsplash for '{query}': {e}")
+        return []
+
+async def get_images_from_web_async(organism_name: str, max_images: int = 5) -> List[str]:
+    """
+    Fetch images of an organism - try Unsplash first, then fallback to Wikimedia
+    Returns list of URLs or base64 encoded images
+    """
+    try:
+        # Try Unsplash first
+        images = await get_images_from_unsplash(organism_name, max_images)
+        
+        if images and len(images) > 0:
+            logging.info(f"Got {len(images)} images from Unsplash for '{organism_name}'")
+            return images
+        
+        # Fallback to Wikimedia Commons
+        logging.info(f"Unsplash returned no results, trying Wikimedia Commons for '{organism_name}'")
+        images = []
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        try:
+            wiki_url = f"https://commons.wikimedia.org/w/api.php?action=query&list=allimages&aisort=timestamp&aidir=descending&aifrom={organism_name}&ailimit=10&format=json"
+            response = requests.get(wiki_url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if 'query' in data and 'allimages' in data['query']:
+                    for img in data['query']['allimages'][:max_images]:
+                        if 'url' in img:
+                            img_url = img['url']
+                            images.append(img_url)
+                            logging.info(f"Found image from Wikimedia: {img_url[:50]}...")
+        except Exception as e:
+            logging.warning(f"Wikimedia API error: {e}")
+        
+        if images:
+            logging.info(f"Got {len(images)} images from Wikimedia for '{organism_name}'")
+            return images
+        
+        # If still no images, return empty list (no placeholders)
+        logging.warning(f"No images found for '{organism_name}' from any source")
+        return []
+        
+    except Exception as e:
+        logging.warning(f"Error fetching images for {organism_name}: {e}")
+        return []
+
+# Root endpoint for health checks and load balancers
+@app.get("/")
+async def root_health():
+    return {"status": "ok", "service": "Biology Museum API", "version": "1.0.0"}
+
+# Routes
+@api_router.get("/")
+async def root():
+    return {"message": "Biology Museum API"}
+
+@api_router.get("/organisms", response_model=List[Organism])
+async def get_organisms():
+    try:
+        organisms = await get_organisms_list()
+        return [Organism(**org) for org in organisms]
+    except Exception as e:
+        logging.error(f"Error fetching organisms: {e}")
+        return []
+
+@api_router.get("/organisms/{organism_id}", response_model=Organism)
+async def get_organism(organism_id: str):
+    try:
+        organism = await find_organism(organism_id)
+        if not organism:
+            raise HTTPException(status_code=404, detail="Organism not found")
+        return Organism(**organism)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching organism: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/organisms/qr/{qr_code_id}", response_model=Organism)
+async def get_organism_by_qr(qr_code_id: str):
+    try:
+        organism = await find_organism_by_qr(qr_code_id)
+        if not organism:
+            raise HTTPException(status_code=404, detail="Organism not found")
+        return Organism(**organism)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching organism by QR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/search")
+async def search_organisms(q: str):
+    try:
+        organisms = await get_organisms_list()
+        q_lower = q.lower()
+        results = []
+        for org in organisms:
+            if (q_lower in org.get('name', '').lower() or 
+                q_lower in org.get('scientific_name', '').lower()):
+                results.append(Organism(**org))
+        return results
+    except Exception as e:
+        logging.error(f"Error searching organisms: {e}")
+        return []
+
+# Pydantic model for AI organism generation request
+class OrganismNameRequest(BaseModel):
+    organism_name: str = Field(..., description="Common name of the organism")
+
+# AI Image Generation Endpoint - Generate images for an organism
+@api_router.post("/admin/organisms/ai-generate-images")
+async def generate_organism_images(request: OrganismNameRequest, _: bool = Depends(verify_admin_token)):
+    """
+    Generate images for an organism using Unsplash API
+    """
+    try:
+        organism_name = request.organism_name.strip()
+        
+        if not organism_name:
+            raise HTTPException(status_code=400, detail="Organism name is required")
+        
+        # Try to fetch images from Unsplash
+        images = await get_images_from_unsplash(organism_name, max_images=5)
+        
+        if images:
+            logging.info(f"Generated {len(images)} images for organism '{organism_name}'")
+            return {
+                "success": True,
+                "image_urls": images,
+                "message": f"Successfully generated {len(images)} images for '{organism_name}'"
+            }
+        else:
+            logging.warning(f"No images found on Unsplash for organism '{organism_name}'")
+            return {
+                "success": False,
+                "image_urls": [],
+                "message": f"Could not find images for '{organism_name}' on Unsplash. Please try another organism name."
+            }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error generating images for organism: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate images: {str(e)}")
+
+# AI Endpoint - Generate organism data using Gemini
+@api_router.post("/admin/organisms/ai-complete")
+async def generate_organism_data_ai(request: OrganismNameRequest):
+    """
+    Generate organism data using Google Gemini AI.
+    Admin only needs to provide the organism name.
+    Includes image generation from Unsplash.
+    """
+    if not GEMINI_API_KEY:
+        error_msg = "AI feature is not configured. GEMINI_API_KEY is missing. Please set the GEMINI_API_KEY environment variable in your .env file or on Render dashboard."
+        logging.error(error_msg)
+        raise HTTPException(status_code=503, detail=error_msg)
+    
+    try:
+        organism_name = request.organism_name.strip()
+        if not organism_name:
+            raise HTTPException(status_code=400, detail="Organism name cannot be empty")
+        
+        # Create prompt for Gemini
+        prompt = f"""You are an expert biologist and zoologist. I need you to provide detailed biological information about "{organism_name}".
+
+Please provide the information in JSON format ONLY (no markdown, no explanations). Return ONLY valid JSON:
+
+{{
+    "name": "Common name of the organism",
+    "scientific_name": "Scientific name (binomial nomenclature)",
+    "classification": {{
+        "kingdom": "Kingdom",
+        "phylum": "Phylum",
+        "class": "Class",
+        "order": "Order",
+        "family": "Family",
+        "genus": "Genus",
+        "species": "Species"
+    }},
+    "morphology": "Physical description including size, color, distinctive features (2-3 sentences)",
+    "physiology": "How the organism functions, internal systems, key biological processes (2-3 sentences)",
+    "general_description": "General overview of the organism, its habitat, and interesting facts (2-3 sentences)",
+    "habitat": "Where it lives and environmental preferences",
+    "behavior": "Behavioral characteristics if applicable",
+    "diet": "What it eats (if applicable)",
+    "conservation_status": "Conservation status (e.g., Least Concern, Endangered, etc.)"
+}}
+
+Be accurate and scientific. If you cannot find specific information, make reasonable educated guesses based on the organism's taxonomy.
+Make sure the JSON is valid and properly formatted."""
+
+        # Call Gemini API
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content(prompt)
+        
+        # Parse the response
+        response_text = response.text.strip()
+        
+        # Remove markdown code blocks if present
+        if response_text.startswith('```json'):
+            response_text = response_text[7:]
+        if response_text.startswith('```'):
+            response_text = response_text[3:]
+        if response_text.endswith('```'):
+            response_text = response_text[:-3]
+        
+        response_text = response_text.strip()
+        
+        # Parse JSON
+        organism_data = json.loads(response_text)
+        
+        # Validate required fields
+        required_fields = ['name', 'scientific_name', 'classification', 'morphology', 'physiology', 'general_description']
+        for field in required_fields:
+            if field not in organism_data:
+                organism_data[field] = ""
+        
+        # Generate images using Unsplash
+        images = []
+        try:
+            search_term = organism_data.get('name', organism_name) or organism_name
+            images = search_unsplash_images(search_term, count=5)
+            logging.info(f"Generated {len(images)} images for {search_term}")
+        except Exception as e:
+            logging.warning(f"Error generating images: {e}")
+            images = []
+        
+        # Return the generated data with images
+        return {
+            "success": True,
+            "data": {
+                **organism_data,
+                "images": images
+            },
+            "source": "ai_generated"
+        }
+
+        
+    except json.JSONDecodeError as e:
+        logging.error(f"JSON parsing error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
+    except Exception as e:
+        logging.error(f"Error generating organism data with AI: {e}")
+        raise HTTPException(status_code=500, detail=f"Error generating organism data: {str(e)}")
+
+
+def search_unsplash_images(organism_name: str, count: int = 6):
+    """Search Unsplash API for organism images with fallback options."""
+    UNSPLASH_ACCESS_KEY = os.getenv("UNSPLASH_ACCESS_KEY")
+    UNSPLASH_API_URL = "https://api.unsplash.com"
+    images = []
+    
+    # Define search terms with fallbacks
+    search_terms = [
+        organism_name,  # Primary: organism name
+        organism_name.lower(),  # Lowercase version
+    ]
+    
+    # Add first word if multi-word organism name
+    if ' ' in organism_name:
+        search_terms.append(organism_name.split()[0])
+    
+    # Add generic fallbacks
+    search_terms.extend(["animal", "nature", "wildlife"])
+    
+    # Try each search term
+    for query in search_terms:
+        if len(images) >= count:
+            break
+        
+        try:
+            logging.info(f"Searching Unsplash for: {query}")
+            response = requests.get(
+                f"{UNSPLASH_API_URL}/search/photos",
+                params={
+                    'query': query,
+                    'client_id': UNSPLASH_ACCESS_KEY,
+                    'per_page': 10,
+                    'orientation': 'landscape'
+                },
+                timeout=10,
+                headers={'User-Agent': 'ZooMuseum/1.0'}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get('results', [])
+                logging.info(f"Found {len(results)} results for '{query}'")
+                
+                for result in results:
+                    if len(images) >= count:
+                        break
+                    
+                    img_url = result.get('urls', {}).get('regular', '')
+                    if img_url and img_url not in images:
+                        # Add quality parameters
+                        if '?' in img_url:
+                            img_url += '&w=800&q=90'
+                        else:
+                            img_url += '?w=800&q=90'
+                        images.append(img_url)
+                        logging.info(f"Added image: {img_url[:50]}...")
+            else:
+                logging.warning(f"Unsplash returned status {response.status_code} for '{query}'")
+                
+        except Exception as e:
+            logging.warning(f"Error searching Unsplash for '{query}': {e}")
+            continue
+    
+    logging.info(f"Retrieved {len(images)} total images for '{organism_name}'")
+    return images[:count]
+
+def get_search_terms_from_gemini(organism_name: str):
+    """Use Gemini to generate better search terms for organism images."""
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        prompt = f'Given the organism name "{organism_name}", generate 3-5 search keywords that would find relevant images on Unsplash. Each keyword should be a single word or short phrase. Return ONLY the keywords as comma-separated list. Example: "cobra, snake, reptile"'
+        response = model.generate_content(prompt)
+        search_terms = [term.strip() for term in response.text.split(',')]
+        return search_terms
+    except Exception as e:
+        logging.warning(f"Could not get search terms from Gemini: {e}")
+        return [organism_name.lower()]
+
+# Root endpoint for health checks and load balancers
+@app.get("/")
+async def root_health():
+    return {"status": "ok", "service": "Biology Museum API", "version": "1.0.0"}
+
+@api_router.post("/admin/identify-organism")
+async def identify_organism_from_camera(request: dict):
+    """
+    Identify organism from camera image using Gemini Vision AI.
+    
+    Request:
+    {
+        "image_data": "base64_encoded_image_with_data_uri"
+    }
+    
+    Response:
+    {
+        "success": true,
+        "organism_name": "Bengal Tiger",
+        "scientific_name": "Panthera tigris",
+        "confidence": 94,
+        "description": "Large carnivorous cat...",
+        "classification": {
+            "kingdom": "Animalia",
+            "phylum": "Chordata",
+            "class": "Mammalia",
+            "order": "Carnivora",
+            "family": "Felidae",
+            "genus": "Panthera",
+            "species": "tigris"
+        },
+        "characteristics": ["Orange coat", "Black stripes", ...]
+    }
+    """
+    try:
+        if not HAS_GENAI or not GEMINI_API_KEY:
+            raise ValueError("Gemini API not configured")
+        
+        image_data = request.get("image_data", "")
+        
+        if not image_data:
+            raise ValueError("image_data is required")
+        
+        print(f"[INFO] Identifying organism from camera image...")
+        
+        # Create identification prompt
+        prompt = """Analyze this photograph and identify the organism shown. Be precise and scientific.
+
+IMPORTANT: Respond ONLY in valid JSON format with no other text.
+
+{
+    "is_organism": boolean (true if a living organism is clearly visible),
+    "organism_name": "Common name if identifiable, or null if cannot identify",
+    "scientific_name": "Scientific name if known, or null",
+    "confidence": number (0-100, your confidence level),
+    "description": "Brief 2-3 sentence description of the organism visible in photo",
+    "characteristics": ["list", "of", "visible", "characteristics", "like", "color", "size", "markings"],
+    "classification": {
+        "kingdom": "e.g., Animalia (required if organism identified)",
+        "phylum": "e.g., Chordata",
+        "class": "e.g., Mammalia",
+        "order": "e.g., Carnivora",
+        "family": "e.g., Felidae",
+        "genus": "e.g., Panthera",
+        "species": "e.g., tigris"
+    }
+}
+
+Guidelines:
+- Only identify if you are reasonably confident (>50% confidence minimum)
+- Be specific: avoid vague identifications like "bird" or "animal"
+- For unknown organisms, set confidence to 0 and organism_name to null
+- Classification should be as complete as possible, or empty strings for unknown levels
+- Characteristics should be observable features from the photo"""
+
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        
+        # Remove data:image/... prefix if present
+        if ',' in image_data:
+            image_data_clean = image_data.split(',')[1]
+        else:
+            image_data_clean = image_data
+        
+        # Decode base64
+        image_bytes = base64.b64decode(image_data_clean)
+        
+        response = model.generate_content([
+            prompt,
+            {
+                "mime_type": "image/jpeg",
+                "data": base64.b64encode(image_bytes).decode()
+            }
+        ])
+        
+        # Parse response
+        response_text = response.text
+        print(f"[INFO] Gemini response: {response_text[:200]}...")
+        
+        # Extract JSON
+        start_idx = response_text.find('{')
+        end_idx = response_text.rfind('}') + 1
+        
+        if start_idx < 0 or end_idx <= 0:
+            raise ValueError("Could not parse AI response as JSON")
+        
+        json_str = response_text[start_idx:end_idx]
+        result = json.loads(json_str)
+        
+        # Validate response
+        if not result.get("is_organism", False):
+            return {
+                "success": False,
+                "error": "No organism detected in image. Please take a clearer photo.",
+                "confidence": 0
+            }
+        
+        if result.get("confidence", 0) < 40:
+            return {
+                "success": False,
+                "error": f"Could not confidently identify organism (confidence: {result.get('confidence', 0)}%). Please try another photo.",
+                "confidence": result.get("confidence", 0)
+            }
+        
+        print(f"[OK] Identified: {result.get('organism_name')} (confidence: {result.get('confidence')}%)")
+        
+        return {
+            "success": True,
+            "organism_name": result.get("organism_name"),
+            "scientific_name": result.get("scientific_name"),
+            "confidence": min(100, max(0, result.get("confidence", 50))),  # Clamp 0-100
+            "description": result.get("description", ""),
+            "characteristics": result.get("characteristics", []),
+            "classification": result.get("classification", {})
+        }
+    
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parse error: {e}")
+        return {
+            "success": False,
+            "error": "Failed to parse AI response. Please try again.",
+            "message": "AI response parsing failed"
+        }
+    except Exception as e:
+        logger.error(f"Organism identification error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to identify organism"
+        }
+
+@api_router.post("/admin/login", response_model=AdminToken)
+async def admin_login(login: AdminLogin):
+    try:
+        # Validate that at least one credential is provided
+        if not login.username and not login.phone_number:
+            raise HTTPException(status_code=400, detail="Username or phone number required")
+        
+        logging.info(f"Admin login attempt - Username: {login.username}, Phone: {login.phone_number}")
+        
+        # Check maintenance admin first (sarthaknk07)
+        if login.username == "sarthaknk07" and login.password == "adminSarthak":
+            logging.info("[LOGIN] ✓ Matched maintenance admin credentials")
+            token = hashlib.sha256("sarthaknk07:adminSarthak".encode()).hexdigest()
+            logging.info(f"[LOGIN] Token generated: {token[:30]}...")
+            
+            # Store the token in admin_sessions for verification
+            try:
+                if admin_sessions_collection is not None:
+                    now = datetime.now(pytz.timezone('Asia/Kolkata'))
+                    expires = now + timedelta(days=30)
+                    insert_result = await admin_sessions_collection.insert_one({
+                        "token": token,
+                        "username": "sarthaknk07",
+                        "role": "maintenance_admin",
+                        "created_at": now.isoformat(),
+                        "expires_at": expires.isoformat()
+                    })
+                    logging.info(f"[LOGIN] ✓ Token stored in admin_sessions. Inserted ID: {insert_result.inserted_id}")
+                else:
+                    logging.error("[LOGIN] ✗ admin_sessions_collection is None!")
+            except Exception as e:
+                logging.error(f"[LOGIN] ✗ Failed to store token: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            logging.info("[LOGIN] ✓ LOGIN SUCCESS for maintenance admin")
+            return AdminToken(access_token=token)
+        
+        # Check hardcoded default admin first
+        if login.username == "admin" and login.password == "adminSBES":
+            logging.info("[LOGIN] ✓ Matched hardcoded admin credentials")
+            token = hashlib.sha256("admin:adminSBES".encode()).hexdigest()
+            logging.info(f"[LOGIN] Token generated: {token[:30]}...")
+            
+            # Store the token in admin_sessions for verification
+            try:
+                if admin_sessions_collection is not None:
+                    now = datetime.now(pytz.timezone('Asia/Kolkata'))
+                    expires = now + timedelta(days=30)
+                    insert_result = await admin_sessions_collection.insert_one({
+                        "token": token,
+                        "username": "admin",
+                        "created_at": now.isoformat(),
+                        "expires_at": expires.isoformat()
+                    })
+                    logging.info(f"[LOGIN] ✓ Token stored in admin_sessions. Inserted ID: {insert_result.inserted_id}")
+                else:
+                    logging.error("[LOGIN] ✗ admin_sessions_collection is None!")
+            except Exception as e:
+                logging.error(f"[LOGIN] ✗ Failed to store token: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            logging.info("[LOGIN] ✓ LOGIN SUCCESS for hardcoded admin")
+            return AdminToken(access_token=token)
+        
+        # Check admins collection by username or phone number
+        query = {}
+        if login.username:
+            query["username"] = login.username
+        if login.phone_number:
+            if query:  # If we already have a username, check both
+                admin_user = await admins_collection.find_one({"$or": [{"username": login.username}, {"phone_number": login.phone_number}]})
+            else:
+                admin_user = await admins_collection.find_one({"phone_number": login.phone_number})
+        else:
+            admin_user = await admins_collection.find_one(query)
+        
+        logging.info(f"[LOGIN] Query: {query}")
+        if admin_user:
+            logging.info(f"[LOGIN] ✓ Admin found in database: {admin_user.get('username')}")
+            password_hash = hashlib.sha256(login.password.encode()).hexdigest()
+            stored_hash = admin_user.get("password_hash")
+            
+            if password_hash == stored_hash:
+                logging.info(f"[LOGIN] ✓ Password hash matched for {admin_user.get('username')}")
+            else:
+                logging.warning(f"[LOGIN] ✗ Password hash MISMATCH for {admin_user.get('username')}")
+                logging.debug(f"       Expected: {stored_hash[:20]}...")
+                logging.debug(f"       Got:      {password_hash[:20]}...")
+            
+            is_active = admin_user.get("is_active", True)
+            logging.info(f"[LOGIN] Admin is_active: {is_active}")
+            
+            if admin_user.get("password_hash") == password_hash and admin_user.get("is_active", True):
+                identifier = login.username or login.phone_number
+                token = hashlib.sha256(f"{identifier}:{login.password}".encode()).hexdigest()
+                logging.info(f"[LOGIN] ✓ Generating token for identifier: {identifier}")
+                logging.info(f"[LOGIN] Token generated: {token[:30]}...")
+                
+                # Store the token in admin_sessions for verification
+                try:
+                    if admin_sessions_collection is not None:
+                        now = datetime.now(pytz.timezone('Asia/Kolkata'))
+                        expires = now + timedelta(days=30)
+                        insert_result = await admin_sessions_collection.insert_one({
+                            "token": token,
+                            "username": admin_user.get("username"),
+                            "created_at": now.isoformat(),
+                            "expires_at": expires.isoformat()
+                        })
+                        logging.info(f"[LOGIN] ✓ Token stored in admin_sessions. Inserted ID: {insert_result.inserted_id}")
+                    else:
+                        logging.error("[LOGIN] ✗ admin_sessions_collection is None!")
+                except Exception as e:
+                    logging.error(f"[LOGIN] ✗ Failed to store token: {e}")
+                    import traceback
+                    traceback.print_exc()
+                
+                logging.info(f"[LOGIN] ✓ LOGIN SUCCESS for {admin_user.get('username')}")
+                return AdminToken(access_token=token)
+            else:
+                logging.warning(f"[LOGIN] ✗ Password check or inactive status failed")
+        else:
+            logging.warning(f"[LOGIN] ✗ Admin not found with query: {query}")
+        
+        logging.warning(f"[LOGIN] ✗ Login failed - admin not found or invalid password")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Admin login error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Login failed")
+
+@api_router.post("/admin/register", response_model=AdminResponse)
+async def register_admin(admin_data: AdminRegister, _: bool = Depends(verify_admin_token)):
+    """Register a new admin user. Only existing admins can register new admins."""
+    try:
+        # Check if username already exists
+        existing_admin = await admins_collection.find_one({"username": admin_data.username})
+        if existing_admin:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        
+        # Create new admin
+        admin_id = str(uuid.uuid4())
+        password_hash = hashlib.sha256(admin_data.password.encode()).hexdigest()
+        
+        new_admin = {
+            "id": admin_id,
+            "username": admin_data.username,
+            "password_hash": password_hash,
+            "phone_number": admin_data.phone_number,
+            "email": admin_data.email,  # Keep as None if not provided
+            "role": "admin",
+            "is_active": True,
+            "created_at": get_ist_now(),
+            "updated_at": get_ist_now()
+        }
+        
+        result = await admins_collection.insert_one(new_admin)
+        logging.info(f"New admin registered: {admin_data.username}")
+        
+        return AdminResponse(
+            id=admin_id,
+            username=admin_data.username,
+            phone_number=admin_data.phone_number,
+            email=admin_data.email,
+            role="admin",
+            is_active=True,
+            created_at=new_admin["created_at"],
+            updated_at=new_admin["updated_at"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Admin registration error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/debug/sessions")
+async def debug_sessions():
+    """Debug endpoint - check stored admin sessions (FOR DEBUGGING ONLY)"""
+    try:
+        if not admin_sessions_collection:
+            return {"error": "admin_sessions_collection is None"}
+        
+        sessions = await admin_sessions_collection.find().to_list(100)
+        result = []
+        for session in sessions:
+            session.pop("_id", None)
+            result.append({
+                "username": session.get("username"),
+                "token": session.get("token", "")[:20] + "...",
+                "created_at": session.get("created_at"),
+                "expires_at": session.get("expires_at"),
+                "expired": session.get("expires_at") < datetime.now(pytz.timezone('Asia/Kolkata')) if session.get("expires_at") else "unknown"
+            })
+        
+        return {
+            "total_sessions": len(result),
+            "sessions": result,
+            "current_time": datetime.now(pytz.timezone('Asia/Kolkata')).isoformat()
+        }
+    except Exception as e:
+        logging.error(f"Debug error: {e}")
+        return {"error": str(e)}
+
+@api_router.get("/admin/users")
+async def get_all_admins(_: bool = Depends(verify_admin_token)):
+    """Get all admin users."""
+    try:
+        admins = await admins_collection.find().to_list(1000)
+        result = []
+        for admin in admins:
+            admin.pop("_id", None)
+            admin.pop("password_hash", None)  # Don't return password hash
+            result.append(AdminResponse(**admin))
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching admins: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.put("/admin/users/{username}")
+async def update_admin(username: str, updates: AdminUpdate, _: bool = Depends(verify_admin_token)):
+    """Update admin user (password and phone number)."""
+    try:
+        admin_user = await admins_collection.find_one({"username": username})
+        if not admin_user:
+            raise HTTPException(status_code=404, detail="Admin user not found")
+        
+        update_data = {
+            "updated_at": get_ist_now()
+        }
+        
+        if updates.password:
+            update_data["password_hash"] = hashlib.sha256(updates.password.encode()).hexdigest()
+        
+        if updates.phone_number:
+            update_data["phone_number"] = updates.phone_number
+        
+        await admins_collection.update_one(
+            {"username": username},
+            {"$set": update_data}
+        )
+        
+        logging.info(f"Admin updated: {username}")
+        
+        # Return updated admin
+        updated_admin = await admins_collection.find_one({"username": username})
+        updated_admin.pop("_id", None)
+        updated_admin.pop("password_hash", None)
+        
+        return AdminResponse(**updated_admin)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating admin: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/admin/users/{username}")
+async def delete_admin(username: str, _: bool = Depends(verify_admin_token)):
+    """Soft delete an admin user (set is_active to False)."""
+    try:
+        if username == "admin":
+            raise HTTPException(status_code=400, detail="Cannot delete default admin user")
+        
+        admin_user = await admins_collection.find_one({"username": username})
+        if not admin_user:
+            raise HTTPException(status_code=404, detail="Admin user not found")
+        
+        await admins_collection.update_one(
+            {"username": username},
+            {"$set": {"is_active": False, "updated_at": get_ist_now()}}
+        )
+        
+        logging.info(f"Admin deactivated: {username}")
+        return {"success": True, "message": f"Admin {username} deactivated"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error deleting admin: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/admin/verify-email")
+async def verify_admin_email(request: dict):
+    """Verify if an email is in the authorized admin whitelist."""
+    try:
+        email = request.get("email", "").strip().lower()
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
+        
+        # Get authorized emails from environment
+        authorized_emails_str = os.environ.get('AUTHORIZED_ADMIN_EMAILS', '')
+        if not authorized_emails_str:
+            raise HTTPException(status_code=503, detail="Admin email whitelist not configured")
+        
+        # Parse authorized emails (comma-separated)
+        authorized_emails = [e.strip().lower() for e in authorized_emails_str.split(',')]
+        
+        # Check if email is authorized
+        if email in authorized_emails:
+            # Generate admin token for this email
+            token = hashlib.sha256(f"admin:{email}".encode()).hexdigest()
+            return {
+                "success": True,
+                "email": email,
+                "access_token": token,
+                "message": f"Successfully logged in as {email}"
+            }
+        else:
+            raise HTTPException(status_code=403, detail="Email not authorized. Access denied.")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Email verification error: {e}")
+        raise HTTPException(status_code=500, detail="Email verification failed")
+
+@api_router.post("/admin/google-login")
+async def google_login(request: dict):
+    """Verify Google OAuth token and check if email is authorized."""
+    try:
+        google_token = request.get("token", "").strip()
+        
+        if not google_token:
+            raise HTTPException(status_code=400, detail="Google token is required")
+        
+        # Verify Google token using google-auth library
+        try:
+            from google.auth.transport import requests
+            from google.oauth2 import id_token
+            
+            # Get Google Client ID from environment
+            google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
+            if not google_client_id:
+                raise HTTPException(status_code=503, detail="Google OAuth not configured")
+            
+            # Verify the token
+            idinfo = id_token.verify_oauth2_token(google_token, requests.Request(), google_client_id)
+            
+            # Extract email from token
+            email = idinfo.get('email', '').strip().lower()
+            if not email:
+                raise HTTPException(status_code=400, detail="No email in Google token")
+            
+            # Verify email is authorized
+            authorized_emails_str = os.environ.get('AUTHORIZED_ADMIN_EMAILS', '')
+            if not authorized_emails_str:
+                raise HTTPException(status_code=503, detail="Admin email whitelist not configured")
+            
+            authorized_emails = [e.strip().lower() for e in authorized_emails_str.split(',')]
+            
+            if email not in authorized_emails:
+                raise HTTPException(status_code=403, detail=f"Email {email} is not authorized. Access denied.")
+            
+            # Generate admin token for this email
+            token = hashlib.sha256(f"admin:{email}".encode()).hexdigest()
+            
+            # Store the token in admin_sessions for verification
+            try:
+                if admin_sessions_collection is not None:
+                    now = datetime.now(pytz.timezone('Asia/Kolkata'))
+                    expires = now + timedelta(days=30)
+                    insert_result = await admin_sessions_collection.insert_one({
+                        "token": token,
+                        "username": email,  # Use email as username for Google OAuth
+                        "created_at": now.isoformat(),
+                        "expires_at": expires.isoformat(),
+                        "auth_type": "google_oauth"
+                    })
+                    logging.info(f"[GOOGLE LOGIN] ✓ Token stored in admin_sessions. Inserted ID: {insert_result.inserted_id}")
+            except Exception as e:
+                logging.warning(f"[GOOGLE LOGIN] Failed to store token in admin_sessions: {e}")
+            
+            return {
+                "success": True,
+                "email": email,
+                "name": idinfo.get('name', ''),
+                "picture": idinfo.get('picture', ''),
+                "access_token": token,
+                "message": f"Successfully logged in with Google as {email}"
+            }
+            
+        except ValueError as e:
+            logging.error(f"Invalid Google token: {e}")
+            raise HTTPException(status_code=401, detail="Invalid Google token")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Google login error: {e}")
+        raise HTTPException(status_code=500, detail=f"Google login failed: {str(e)}")
+
+# ==================== GMAIL USER AUTHENTICATION ====================
+@api_router.post("/auth/gmail/login", response_model=GoogleLoginResponse)
+async def gmail_login(request: GoogleLoginRequest):
+    """
+    Authenticate user with Google ID token.
+    Creates or updates user record in MongoDB.
+    Returns JWT token for subsequent requests.
+    """
+    try:
+        from google.auth.transport import requests as google_requests
+        from google.oauth2 import id_token
+        
+        # Get Google Client ID from environment
+        google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
+        if not google_client_id:
+            raise HTTPException(status_code=503, detail="Google OAuth not configured")
+        
+        # Verify the token
+        try:
+            idinfo = id_token.verify_oauth2_token(request.token, google_requests.Request(), google_client_id)
+        except ValueError as e:
+            logging.error(f"Invalid Google token: {e}")
+            raise HTTPException(status_code=401, detail="Invalid Google token")
+        
+        # Extract user info
+        email = idinfo.get('email', '').strip().lower()
+        name = idinfo.get('name', '')
+        picture = idinfo.get('picture', '')
+        google_id = idinfo.get('sub', '')  # Google's unique user ID
+        
+        if not email or not google_id:
+            raise HTTPException(status_code=400, detail="Missing required info in Google token")
+        
+        # Check if user exists
+        existing_user = await gmail_users_collection.find_one({"email": email})
+        
+        if existing_user:
+            # Update last_active timestamp
+            await gmail_users_collection.update_one(
+                {"email": email},
+                {
+                    "$set": {
+                        "last_active": get_ist_now(),
+                        "is_active": True,
+                        "profile_picture": picture,  # Update picture in case it changed
+                        "name": name  # Update name in case it changed
+                    }
+                }
+            )
+            user_record = await gmail_users_collection.find_one({"email": email})
+        else:
+            # Create new user
+            new_user = GmailUser(
+                email=email,
+                name=name,
+                profile_picture=picture,
+                google_id=google_id
+            )
+            await gmail_users_collection.insert_one(new_user.model_dump())
+            user_record = await gmail_users_collection.find_one({"email": email})
+        
+        # Generate JWT token
+        payload = {
+            "sub": user_record["id"],
+            "email": email,
+            "name": name,
+            "exp": datetime.now(IST) + timedelta(days=30)  # 30-day expiration
+        }
+        jwt_token = jwt.encode(payload, os.environ.get("JWT_SECRET_KEY", "biomuseum-secret"), algorithm="HS256")
+        
+        # Update token in database
+        await gmail_users_collection.update_one(
+            {"email": email},
+            {"$set": {"jwt_token": jwt_token}}
+        )
+        
+        user_response = GmailUserResponse(
+            id=user_record["id"],
+            email=email,
+            name=name,
+            profile_picture=picture,
+            login_timestamp=user_record["login_timestamp"],
+            last_active=user_record["last_active"],
+            is_active=True
+        )
+        
+        return GoogleLoginResponse(
+            access_token=jwt_token,
+            user=user_response
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Gmail login error: {e}")
+        raise HTTPException(status_code=500, detail=f"Gmail login failed: {str(e)}")
+
+@api_router.get("/auth/verify")
+async def verify_token(authorization: str = Header(None)):
+    """
+    Verify JWT token and return user info.
+    """
+    try:
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Missing authorization header")
+        
+        # Extract token from "Bearer <token>"
+        parts = authorization.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            raise HTTPException(status_code=401, detail="Invalid authorization header")
+        
+        token = parts[1]
+        
+        # Verify token
+        try:
+            payload = jwt.decode(token, os.environ.get("JWT_SECRET_KEY", "biomuseum-secret"), algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token expired")
+        except jwt.InvalidTokenError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        # Get user from database
+        user = await gmail_users_collection.find_one({"id": payload["sub"]})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Update last_active
+        await gmail_users_collection.update_one(
+            {"id": user["id"]},
+            {"$set": {"last_active": get_ist_now()}}
+        )
+        
+        return GmailUserResponse(
+            id=user["id"],
+            email=user["email"],
+            name=user["name"],
+            profile_picture=user.get("profile_picture"),
+            login_timestamp=user["login_timestamp"],
+            last_active=user["last_active"],
+            is_active=user.get("is_active", True)
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Token verification error: {e}")
+        raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
+
+@api_router.get("/auth/user")
+async def get_current_user(authorization: str = Header(None)):
+    """
+    Get current authenticated user info.
+    """
+    try:
+        if not authorization:
+            return None
+        
+        parts = authorization.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return None
+        
+        token = parts[1]
+        
+        try:
+            payload = jwt.decode(token, os.environ.get("JWT_SECRET_KEY", "biomuseum-secret"), algorithms=["HS256"])
+        except:
+            return None
+        
+        user = await gmail_users_collection.find_one({"id": payload["sub"]})
+        if not user:
+            return None
+        
+        return GmailUserResponse(
+            id=user["id"],
+            email=user["email"],
+            name=user["name"],
+            profile_picture=user.get("profile_picture"),
+            login_timestamp=user["login_timestamp"],
+            last_active=user["last_active"],
+            is_active=user.get("is_active", True)
+        )
+    
+    except Exception as e:
+        logging.error(f"Get user error: {e}")
+        return None
+
+@api_router.post("/auth/logout")
+async def logout(authorization: str = Header(None)):
+    """
+    Mark user as inactive (logout).
+    """
+    try:
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Missing authorization header")
+        
+        parts = authorization.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            raise HTTPException(status_code=401, detail="Invalid authorization header")
+        
+        token = parts[1]
+        
+        try:
+            payload = jwt.decode(token, os.environ.get("JWT_SECRET_KEY", "biomuseum-secret"), algorithms=["HS256"])
+        except:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        # Mark user as inactive
+        result = await gmail_users_collection.update_one(
+            {"id": payload["sub"]},
+            {"$set": {"is_active": False, "jwt_token": None}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return {"message": "Successfully logged out"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Logout error: {e}")
+        raise HTTPException(status_code=500, detail=f"Logout failed: {str(e)}")
+
+# ==================== END GMAIL USER AUTHENTICATION ====================
+
+# ==================== FILE UPLOAD ENDPOINT ====================
+
+@api_router.post("/upload")
+async def upload_file(file: UploadFile = File(...), _: bool = Depends(verify_admin_token)):
+    """
+    Upload a file (image, document, etc.) and return the file URL.
+    Admin-only endpoint.
+    Supports images and common document formats.
+    """
+    try:
+        if not file:
+            raise HTTPException(status_code=400, detail="No file provided")
+        
+        # Validate file type
+        allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx', '.txt'}
+        file_ext = Path(file.filename).suffix.lower()
+        
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}"
+            )
+        
+        # Limit file size (5MB)
+        max_size = 5 * 1024 * 1024  # 5MB
+        file_content = await file.read()
+        
+        if len(file_content) > max_size:
+            raise HTTPException(status_code=400, detail="File size exceeds 5MB limit")
+        
+        # Generate unique filename
+        file_id = str(uuid.uuid4())
+        file_ext = Path(file.filename).suffix.lower()
+        unique_filename = f"{file_id}{file_ext}"
+        
+        # Create uploads directory if it doesn't exist
+        upload_dir = Path("uploads")
+        upload_dir.mkdir(exist_ok=True)
+        
+        # Save file
+        file_path = upload_dir / unique_filename
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        
+        # Return file URL (relative path that can be accessed)
+        file_url = f"/uploads/{unique_filename}"
+        
+        logging.info(f"File uploaded successfully: {unique_filename}")
+        
+        return {
+            "success": True,
+            "file_url": file_url,
+            "filename": unique_filename,
+            "file_id": file_id
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error uploading file: {e}")
+        raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
+
+# Serve static uploads
+from fastapi.staticfiles import StaticFiles
+
+uploads_dir = Path("uploads")
+uploads_dir.mkdir(exist_ok=True)
+
+# Only add static files middleware if uploads directory exists
+if uploads_dir.exists():
+    app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+
+# ==================== ADMIN ORGANISMS ENDPOINTS ====================
+
+@api_router.post("/admin/organisms", response_model=Organism)
+async def create_organism(organism: OrganismCreate, _: bool = Depends(verify_admin_token)):
+    try:
+        organism_obj = Organism(**organism.dict())
+        organism_obj.qr_code_image = generate_qr_code(organism_obj.id)
+        
+        await insert_organism(organism_obj.model_dump())
+        return organism_obj
+    except Exception as e:
+        logging.error(f"Error creating organism: {e}")
+        raise HTTPException(status_code=500, detail=f"Error creating organism: {str(e)}")
+
+@api_router.put("/admin/organisms/{organism_id}", response_model=Organism)
+async def update_organism(organism_id: str, updates: OrganismUpdate, _: bool = Depends(verify_admin_token)):
+    try:
+        existing = await find_organism(organism_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Organism not found")
+        
+        update_data = {k: v for k, v in updates.dict().items() if v is not None}
+        update_data['updated_at'] = get_ist_now()
+        
+        updated_org = await update_organism_db(organism_id, update_data)
+        if not updated_org:
+            raise HTTPException(status_code=404, detail="Organism not found")
+        return Organism(**updated_org)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating organism: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/admin/organisms/{organism_id}")
+async def delete_organism(organism_id: str, _: bool = Depends(verify_admin_token)):
+    try:
+        deleted = await delete_organism_db(organism_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Organism not found")
+        return {"message": "Organism deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error deleting organism: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== SUGGESTION ENDPOINTS ====================
+
+# Get all suggestions (admin only)
+@api_router.get("/admin/suggestions")
+async def get_all_suggestions(_: bool = Depends(verify_admin_token)):
+    try:
+        suggestions = await suggestions_collection.find().to_list(1000)
+        result = []
+        for sugg in suggestions:
+            # Remove MongoDB's _id field to avoid Pydantic validation error
+            sugg_copy = {k: v for k, v in sugg.items() if k != '_id'}
+            # Add default values for missing fields
+            sugg_copy.setdefault('educational_level', 'Not specified')
+            sugg_copy.setdefault('description', '')
+            sugg_copy.setdefault('status', 'pending')
+            result.append(Suggestion(**sugg_copy))
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching suggestions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get pending suggestions (admin only)
+@api_router.get("/admin/suggestions/pending")
+async def get_pending_suggestions(_: bool = Depends(verify_admin_token)):
+    try:
+        suggestions = await suggestions_collection.find({"status": "pending"}).to_list(1000)
+        result = []
+        for sugg in suggestions:
+            # Remove MongoDB's _id field to avoid Pydantic validation error
+            sugg_copy = {k: v for k, v in sugg.items() if k != '_id'}
+            # Add default values for missing fields
+            sugg_copy.setdefault('educational_level', 'Not specified')
+            sugg_copy.setdefault('description', '')
+            sugg_copy.setdefault('status', 'pending')
+            result.append(Suggestion(**sugg_copy))
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching pending suggestions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Create new suggestion (public)
+@api_router.post("/suggestions")
+async def create_suggestion(suggestion: SuggestionCreate):
+    try:
+        if not suggestion.user_name.strip() or not suggestion.organism_name.strip():
+            raise HTTPException(status_code=400, detail="User name and organism name are required")
+        
+        if not suggestion.educational_level or not suggestion.educational_level.strip():
+            raise HTTPException(status_code=400, detail="Class/Standard is required")
+        
+        suggestion_data = Suggestion(
+            user_name=suggestion.user_name,
+            organism_name=suggestion.organism_name,
+            description=suggestion.description or "",
+            educational_level=suggestion.educational_level
+        )
+        
+        await suggestions_collection.insert_one(suggestion_data.dict())
+        return {"message": "Suggestion submitted successfully", "id": suggestion_data.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error creating suggestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update suggestion status (admin only)
+@api_router.put("/admin/suggestions/{suggestion_id}/status")
+async def update_suggestion_status(suggestion_id: str, status: str = Query(...), _: bool = Depends(verify_admin_token)):
+    try:
+        if status not in ["pending", "approved", "rejected"]:
+            raise HTTPException(status_code=400, detail="Invalid status")
+        
+        result = await suggestions_collection.update_one(
+            {"id": suggestion_id},
+            {"$set": {"status": status, "updated_at": get_ist_now()}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        
+        return {"message": f"Suggestion {status} successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating suggestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Verify suggestion with AI (admin only)
+@api_router.post("/admin/suggestions/{suggestion_id}/verify")
+async def verify_suggestion_ai(suggestion_id: str, _: bool = Depends(verify_admin_token)):
+    try:
+        suggestion = await suggestions_collection.find_one({"id": suggestion_id})
+        if not suggestion:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        
+        if not HAS_GENAI or not GEMINI_API_KEY:
+            raise HTTPException(status_code=503, detail="AI service not available")
+        
+        # Use Gemini to verify organism
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        verification_prompt = f"""
+        Is "{suggestion['organism_name']}" a real organism/animal/plant species that exists in nature?
+        
+        Respond with a JSON object:
+        {{
+            "is_authentic": true/false,
+            "reason": "explanation",
+            "type": "animal/plant/microorganism/fungus/other",
+            "common_name": "if authentic",
+            "scientific_name": "if authentic"
+        }}
+        """
+        
+        response = model.generate_content(verification_prompt)
+        response_text = response.text.strip()
+        
+        # Extract JSON from response
+        import json
+        try:
+            # Try to find JSON in the response
+            json_start = response_text.find('{')
+            json_end = response_text.rfind('}') + 1
+            if json_start != -1 and json_end > json_start:
+                verification_data = json.loads(response_text[json_start:json_end])
+            else:
+                verification_data = {"is_authentic": False, "reason": "Could not parse response"}
+        except json.JSONDecodeError:
+            verification_data = {"is_authentic": False, "reason": "Invalid response format"}
+        
+        # Update suggestion with verification
+        await suggestions_collection.update_one(
+            {"id": suggestion_id},
+            {
+                "$set": {
+                    "ai_verification": verification_data,
+                    "updated_at": get_ist_now()
+                }
+            }
+        )
+        
+        return verification_data
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error verifying suggestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Approve suggestion and generate complete organism data (admin only)
+@api_router.post("/admin/suggestions/{suggestion_id}/approve")
+async def approve_suggestion_and_generate(suggestion_id: str, _: bool = Depends(verify_admin_token)):
+    try:
+        suggestion = await suggestions_collection.find_one({"id": suggestion_id})
+        if not suggestion:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        
+        if not HAS_GENAI or not GEMINI_API_KEY:
+            raise HTTPException(status_code=503, detail="AI service not available")
+        
+        organism_name = suggestion['organism_name']
+        
+        # Generate complete organism data using the AI endpoint
+        prompt = f"""You are an expert biologist and zoologist. I need you to provide detailed biological information about "{organism_name}".
+
+Please provide the information in JSON format ONLY (no markdown, no explanations). Return ONLY valid JSON:
+
+{{
+    "name": "Common name of the organism",
+    "scientific_name": "Scientific name (binomial nomenclature)",
+    "classification": {{
+        "kingdom": "Kingdom",
+        "phylum": "Phylum",
+        "class": "Class",
+        "order": "Order",
+        "family": "Family",
+        "genus": "Genus",
+        "species": "Species"
+    }},
+    "morphology": "Physical description including size, color, distinctive features (2-3 sentences)",
+    "physiology": "How the organism functions, internal systems, key biological processes (2-3 sentences)",
+    "description": "General overview of the organism, its habitat, and interesting facts (3-4 sentences)"
+}}
+
+Be accurate and scientific. If you cannot find specific information, make reasonable educated guesses based on the organism's taxonomy.
+Make sure the JSON is valid and properly formatted."""
+
+        # Call Gemini API to generate organism data
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content(prompt)
+        
+        # Parse the response
+        response_text = response.text.strip()
+        
+        # Remove markdown code blocks if present
+        if response_text.startswith('```json'):
+            response_text = response_text[7:]
+        if response_text.startswith('```'):
+            response_text = response_text[3:]
+        if response_text.endswith('```'):
+            response_text = response_text[:-3]
+        
+        response_text = response_text.strip()
+        
+        # Parse JSON
+        organism_data = json.loads(response_text)
+        
+        # Now generate images using Unsplash
+        images = []
+        try:
+            search_terms = [
+                organism_data.get('name', organism_name),
+                organism_data.get('scientific_name', ''),
+                organism_name
+            ]
+            
+            # Try each search term until we get real images
+            for search_term in search_terms:
+                if search_term:
+                    try:
+                        images = await get_images_from_unsplash(search_term, max_images=5)
+                        if images and len(images) > 0:
+                            logging.info(f"Generated {len(images)} images from Unsplash for term '{search_term}'")
+                            break
+                    except Exception as e:
+                        logging.warning(f"Error searching Unsplash for term '{search_term}': {e}")
+                        continue
+        except Exception as e:
+            logging.warning(f"Could not fetch images from Unsplash: {e}")
+            images = []
+        
+        # Update suggestion status to approved
+        await suggestions_collection.update_one(
+            {"id": suggestion_id},
+            {
+                "$set": {
+                    "status": "approved",
+                    "updated_at": get_ist_now(),
+                    "ai_verification": {
+                        "is_authentic": True,
+                        "reason": "Admin approved and generated complete data"
+                    }
+                }
+            }
+        )
+        
+        # Return organism data with images ready for auto-fill
+        return {
+            "success": True,
+            "organism_data": {
+                "name": organism_data.get('name', organism_name),
+                "scientific_name": organism_data.get('scientific_name', ''),
+                "classification": organism_data.get('classification', {
+                    "kingdom": "",
+                    "phylum": "",
+                    "class": "",
+                    "order": "",
+                    "family": "",
+                    "genus": "",
+                    "species": ""
+                }),
+                "morphology": organism_data.get('morphology', ''),
+                "physiology": organism_data.get('physiology', ''),
+                "description": organism_data.get('description', ''),
+                "images": images
+            },
+            "suggestion_id": suggestion_id,
+            "message": "Suggestion approved and organism data generated successfully"
+        }
+    except HTTPException:
+        raise
+    except json.JSONDecodeError as e:
+        logging.error(f"JSON parsing error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
+    except Exception as e:
+        logging.error(f"Error approving suggestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Delete suggestion (admin only)
+@api_router.delete("/admin/suggestions/{suggestion_id}")
+async def delete_suggestion(suggestion_id: str, _: bool = Depends(verify_admin_token)):
+    try:
+        result = await suggestions_collection.delete_one({"id": suggestion_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        return {"message": "Suggestion deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error deleting suggestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Verify if organism exists in database (for both suggestions and camera feature)
+@api_router.post("/admin/verify-organism-exists")
+async def verify_organism_exists(request: VerifyOrganismRequest, _: bool = Depends(verify_admin_token)):
+    """
+    Check if an organism already exists in the database by name or scientific name.
+    Used for both camera suggestions and manual suggestions to avoid duplicates.
+    """
+    try:
+        organism_name = request.organism_name.strip()
+        scientific_name = request.scientific_name.strip() if request.scientific_name else ""
+        
+        if not organism_name:
+            raise HTTPException(status_code=400, detail="Organism name is required")
+        
+        # Search for organism by name (case-insensitive) or scientific name
+        query = {
+            "$or": [
+                {"name": {"$regex": f"^{organism_name}$", "$options": "i"}},
+            ]
+        }
+        
+        if scientific_name:
+            query["$or"].append({"scientific_name": {"$regex": f"^{scientific_name}$", "$options": "i"}})
+        
+        existing_organism = await organisms_collection.find_one(query)
+        
+        if existing_organism:
+            # Organism exists - return details
+            return {
+                "exists": True,
+                "organism": {
+                    "id": existing_organism.get("id"),
+                    "name": existing_organism.get("name"),
+                    "scientific_name": existing_organism.get("scientific_name"),
+                    "classification": existing_organism.get("classification", {})
+                },
+                "message": f"'{organism_name}' already exists in the database"
+            }
+        else:
+            # Organism does not exist - can be added
+            return {
+                "exists": False,
+                "message": f"'{organism_name}' is not in the database yet. This suggestion can be approved."
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error verifying organism: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Auto-reject duplicate suggestions (called when suggestion is created)
+@api_router.post("/admin/check-and-auto-reject-duplicate")
+async def check_and_auto_reject_duplicate(suggestion_id: str, _: bool = Depends(verify_admin_token)):
+    """
+    Check if a suggestion is for an existing organism and auto-reject it if found.
+    """
+    try:
+        suggestion = await suggestions_collection.find_one({"id": suggestion_id})
+        if not suggestion:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        
+        organism_name = suggestion.get('organism_name', '').strip()
+        
+        # Search for organism by name (case-insensitive)
+        existing_organism = await organisms_collection.find_one(
+            {"name": {"$regex": f"^{organism_name}$", "$options": "i"}}
+        )
+        
+        if existing_organism:
+            # Auto-reject the suggestion
+            await suggestions_collection.update_one(
+                {"id": suggestion_id},
+                {
+                    "$set": {
+                        "status": "rejected",
+                        "rejection_reason": f"Duplicate: '{organism_name}' already exists in database (ID: {existing_organism.get('id')})",
+                        "auto_rejected": True,
+                        "updated_at": get_ist_now()
+                    }
+                }
+            )
+            
+            return {
+                "auto_rejected": True,
+                "reason": f"'{organism_name}' already exists in the database",
+                "existing_organism": {
+                    "id": existing_organism.get("id"),
+                    "name": existing_organism.get("name")
+                }
+            }
+        else:
+            return {
+                "auto_rejected": False,
+                "message": "Suggestion is for a new organism and can be reviewed"
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error checking for duplicates: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== BIOTUBE ENDPOINTS ====================
+
+# Get all videos (public)
+@api_router.get("/biotube/videos")
+async def get_biotube_videos(kingdom: Optional[str] = None, phylum: Optional[str] = None, class_name: Optional[str] = None, species: Optional[str] = None, search: Optional[str] = None):
+    try:
+        query = {"visibility": "public"}
+        
+        if kingdom:
+            query["kingdom"] = {"$regex": f"^{kingdom}$", "$options": "i"}
+        if phylum:
+            query["phylum"] = {"$regex": f"^{phylum}$", "$options": "i"}
+        if class_name:
+            query["class_name"] = {"$regex": f"^{class_name}$", "$options": "i"}
+        if species:
+            query["species"] = {"$regex": f"^{species}$", "$options": "i"}
+        
+        if search:
+            query["$or"] = [
+                {"title": {"$regex": search, "$options": "i"}},
+                {"description": {"$regex": search, "$options": "i"}},
+                {"kingdom": {"$regex": search, "$options": "i"}},
+                {"species": {"$regex": search, "$options": "i"}}
+            ]
+        
+        videos = await biotube_videos_collection.find(query).sort("created_at", -1).to_list(1000)
+        result = []
+        for video in videos:
+            video_copy = {k: v for k, v in video.items() if k != '_id'}
+            result.append(BiotubVideo(**video_copy))
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching biotube videos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get single video by ID
+@api_router.get("/biotube/videos/{video_id}")
+async def get_biotube_video(video_id: str):
+    try:
+        video = await biotube_videos_collection.find_one({"id": video_id, "visibility": "public"})
+        if not video:
+            raise HTTPException(status_code=404, detail="Video not found")
+        video_copy = {k: v for k, v in video.items() if k != '_id'}
+        return BiotubVideo(**video_copy)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching video: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get related videos
+@api_router.get("/biotube/videos/{video_id}/related")
+async def get_related_videos(video_id: str):
+    try:
+        video = await biotube_videos_collection.find_one({"id": video_id})
+        if not video:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        # Find videos with same kingdom or phylum
+        related = await biotube_videos_collection.find({
+            "visibility": "public",
+            "id": {"$ne": video_id},
+            "$or": [
+                {"kingdom": video.get("kingdom")},
+                {"phylum": video.get("phylum")}
+            ]
+        }).limit(6).to_list(6)
+        
+        result = []
+        for vid in related:
+            video_copy = {k: v for k, v in vid.items() if k != '_id'}
+            result.append(BiotubVideo(**video_copy))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching related videos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get available filters
+@api_router.get("/biotube/filters")
+async def get_biotube_filters():
+    try:
+        kingdoms = await biotube_videos_collection.distinct("kingdom", {"visibility": "public"})
+        phylums = await biotube_videos_collection.distinct("phylum", {"visibility": "public"})
+        classes = await biotube_videos_collection.distinct("class_name", {"visibility": "public"})
+        species_list = await biotube_videos_collection.distinct("species", {"visibility": "public"})
+        
+        return {
+            "kingdoms": sorted(kingdoms),
+            "phylums": sorted(phylums),
+            "classes": sorted(classes),
+            "species": sorted(species_list)
+        }
+    except Exception as e:
+        logging.error(f"Error fetching filters: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Create video suggestion (public)
+@api_router.post("/biotube/suggest-video")
+async def create_video_suggestion(suggestion: VideoSuggestionCreate):
+    try:
+        if not suggestion.user_name.strip() or not suggestion.video_title.strip():
+            raise HTTPException(status_code=400, detail="User name and video title are required")
+        
+        if not suggestion.user_class.strip():
+            raise HTTPException(status_code=400, detail="Class/Standard is required")
+        
+        suggestion_data = VideoSuggestion(
+            user_name=suggestion.user_name,
+            user_class=suggestion.user_class,
+            video_title=suggestion.video_title,
+            video_description=suggestion.video_description or ""
+        )
+        
+        await video_suggestions_collection.insert_one(suggestion_data.dict())
+        return {"message": "Video suggestion submitted successfully", "id": suggestion_data.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error creating video suggestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== BIOTUBE ADMIN ENDPOINTS ====================
+
+# Get biotube dashboard stats (admin only)
+@api_router.get("/admin/biotube/dashboard")
+async def get_biotube_dashboard(_: bool = Depends(verify_admin_token)):
+    try:
+        total_videos = await biotube_videos_collection.count_documents({})
+        public_videos = await biotube_videos_collection.count_documents({"visibility": "public"})
+        pending_suggestions = await video_suggestions_collection.count_documents({"status": "pending"})
+        
+        # Get most viewed (by counting if we had view tracking - for now just recently added)
+        recent_videos = await biotube_videos_collection.find().sort("created_at", -1).limit(5).to_list(5)
+        
+        kingdoms = await biotube_videos_collection.distinct("kingdom")
+        
+        recent = []
+        for v in recent_videos:
+            video_copy = {k: v for k, v in v.items() if k != '_id'}
+            recent.append({
+                "id": video_copy.get("id"),
+                "title": video_copy.get("title"),
+                "created_at": video_copy.get("created_at")
+            })
+        
+        return {
+            "total_videos": total_videos,
+            "public_videos": public_videos,
+            "pending_suggestions": pending_suggestions,
+            "categories_count": len(kingdoms),
+            "recently_added": recent
+        }
+    except Exception as e:
+        logging.error(f"Error fetching biotube dashboard: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Add video (admin only)
+@api_router.post("/admin/biotube/videos")
+async def add_biotube_video(video: BiotubVideoCreate, _: bool = Depends(verify_admin_token)):
+    try:
+        # Extract video ID from YouTube URL
+        import re
+        youtube_regex = r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)'
+        match = re.search(youtube_regex, video.youtube_url)
+        
+        if not match:
+            raise HTTPException(status_code=400, detail="Invalid YouTube URL")
+        
+        video_id = match.group(1)
+        embed_code = f'<iframe width="100%" height="600" src="https://www.youtube.com/embed/{video_id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'
+        
+        # Check for duplicates
+        existing = await biotube_videos_collection.find_one({"youtube_url": video.youtube_url})
+        if existing:
+            raise HTTPException(status_code=400, detail="This YouTube video has already been added")
+        
+        # Get thumbnail - IMPORTANT: Always set a thumbnail URL
+        if video.thumbnail_url and video.thumbnail_url.strip():
+            thumbnail_url = video.thumbnail_url.strip()
+        else:
+            # Auto-generate from YouTube if not provided
+            thumbnail_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+        
+        # Generate QR code for the video page
+        new_video_id = str(uuid.uuid4())
+        qr_url = f"{os.environ.get('FRONTEND_URL', 'http://localhost:3000')}/biotube/watch/{new_video_id}"
+        
+        qr = qrcode.QRCode(version=1, box_size=10, border=2)
+        qr.add_data(qr_url)
+        qr.make(fit=True)
+        
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        img_buffer = io.BytesIO()
+        qr_img.save(img_buffer, format='PNG')
+        img_buffer.seek(0)
+        qr_code_base64 = f"data:image/png;base64,{base64.b64encode(img_buffer.getvalue()).decode()}"
+        
+        video_data = BiotubVideo(
+            id=new_video_id,
+            title=video.title,
+            youtube_url=video.youtube_url,
+            embed_code=embed_code,
+            kingdom=video.kingdom,
+            phylum=video.phylum,
+            class_name=video.class_name,
+            species=video.species,
+            description=video.description or "",
+            thumbnail_url=thumbnail_url,
+            qr_code=qr_code_base64
+        )
+        
+        await biotube_videos_collection.insert_one(video_data.dict())
+        return {"message": "Video added successfully", "id": video_data.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error adding biotube video: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update video (admin only)
+@api_router.put("/admin/biotube/videos/{video_id}")
+async def update_biotube_video(video_id: str, update_data: BiotubVideoUpdate, _: bool = Depends(verify_admin_token)):
+    try:
+        video = await biotube_videos_collection.find_one({"id": video_id})
+        if not video:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+        update_dict["updated_at"] = get_ist_now()
+        
+        await biotube_videos_collection.update_one({"id": video_id}, {"$set": update_dict})
+        return {"message": "Video updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating biotube video: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Delete video (admin only)
+@api_router.delete("/admin/biotube/videos/{video_id}")
+async def delete_biotube_video(video_id: str, _: bool = Depends(verify_admin_token)):
+    try:
+        result = await biotube_videos_collection.delete_one({"id": video_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Video not found")
+        return {"message": "Video deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error deleting biotube video: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get all videos for admin (including private)
+@api_router.get("/admin/biotube/videos")
+async def get_admin_biotube_videos(_: bool = Depends(verify_admin_token)):
+    try:
+        videos = await biotube_videos_collection.find().sort("created_at", -1).to_list(1000)
+        result = []
+        for video in videos:
+            video_copy = {k: v for k, v in video.items() if k != '_id'}
+            result.append(BiotubVideo(**video_copy))
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching admin biotube videos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get video suggestions (admin only)
+@api_router.get("/admin/biotube/suggestions")
+async def get_video_suggestions(status: Optional[str] = None, _: bool = Depends(verify_admin_token)):
+    try:
+        query = {}
+        if status:
+            query["status"] = status
+        
+        suggestions = await video_suggestions_collection.find(query).sort("created_at", -1).to_list(1000)
+        logging.info(f"[Biotube] Found {len(suggestions)} suggestions in database")
+        
+        result = []
+        for i, sugg in enumerate(suggestions):
+            try:
+                sugg_copy = {k: v for k, v in sugg.items() if k != '_id'}
+                # Convert to model and back to dict to ensure proper serialization
+                sugg_obj = VideoSuggestion(**sugg_copy)
+                result.append(sugg_obj.dict())
+            except Exception as item_error:
+                logging.error(f"[Biotube] Error processing suggestion {i}: {item_error}")
+                logging.error(f"[Biotube] Suggestion data: {sugg}")
+                # Skip this suggestion and continue
+                continue
+        
+        logging.info(f"[Biotube] Returning {len(result)} processed suggestions")
+        return result
+    except Exception as e:
+        logging.error(f"[Biotube] Error fetching video suggestions: {e}")
+        import traceback
+        logging.error(f"[Biotube] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update suggestion status (admin only)
+@api_router.put("/admin/biotube/suggestions/{suggestion_id}/status")
+async def update_video_suggestion_status(suggestion_id: str, new_status: str = Query(...), _: bool = Depends(verify_admin_token)):
+    try:
+        if new_status not in ["pending", "reviewed", "added", "dismissed"]:
+            raise HTTPException(status_code=400, detail="Invalid status")
+        
+        result = await video_suggestions_collection.update_one(
+            {"id": suggestion_id},
+            {"$set": {"status": new_status, "updated_at": get_ist_now()}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        
+        return {"message": f"Suggestion status updated to {new_status}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating suggestion status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get user suggestion history (admin only)
+@api_router.get("/admin/biotube/user-history/{user_name}")
+async def get_user_suggestion_history(user_name: str, _: bool = Depends(verify_admin_token)):
+    try:
+        suggestions = await video_suggestions_collection.find({"user_name": {"$regex": f"^{user_name}$", "$options": "i"}}).sort("created_at", -1).to_list(1000)
+        result = []
+        for sugg in suggestions:
+            sugg_copy = {k: v for k, v in sugg.items() if k != '_id'}
+            result.append(VideoSuggestion(**sugg_copy))
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching user history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get all user suggestion history (admin only)
+@api_router.get("/admin/biotube/user-history")
+async def get_all_user_suggestion_history(_: bool = Depends(verify_admin_token)):
+    try:
+        suggestions = await video_suggestions_collection.find().sort("created_at", -1).to_list(10000)
+        logging.info(f"[Biotube] Found {len(suggestions)} total suggestions for history")
+        
+        # Group by user_name
+        history_dict = {}
+        for sugg in suggestions:
+            user = sugg.get("user_name", "Unknown")
+            if user not in history_dict:
+                history_dict[user] = []
+            sugg_copy = {k: v for k, v in sugg.items() if k != '_id'}
+            history_dict[user].append(sugg_copy)
+        
+        logging.info(f"[Biotube] Grouped suggestions into {len(history_dict)} users")
+        return history_dict
+    except Exception as e:
+        logging.error(f"[Biotube] Error fetching all user history: {e}")
+        import traceback
+        logging.error(f"[Biotube] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/gmail-users")
+async def get_all_gmail_users(_: bool = Depends(verify_admin_token)):
+    """
+    Get all logged-in Gmail users for admin panel.
+    Shows email, name, profile pic, login time, last active, and status.
+    """
+    try:
+        users = await gmail_users_collection.find().sort("login_timestamp", -1).to_list(1000)
+        
+        # Remove MongoDB's _id field and return clean data
+        users_list = []
+        for user in users:
+            user_copy = {k: v for k, v in user.items() if k != '_id'}
+            users_list.append(user_copy)
+        
+        logging.info(f"[Auth] Fetched {len(users_list)} Gmail users for admin panel")
+        return users_list
+    except Exception as e:
+        logging.error(f"[Auth] Error fetching Gmail users: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/admin/biotube/suggestions/{suggestion_id}")
+async def delete_suggestion(suggestion_id: str, _: bool = Depends(verify_admin_token)):
+    try:
+        result = await video_suggestions_collection.delete_one({"id": suggestion_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        return {"message": "Suggestion deleted successfully"}
+    except Exception as e:
+        logging.error(f"Error deleting suggestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============= VIDEO COMMENTS ENDPOINTS =============
+
+# Get comments for a video
+@api_router.get("/biotube/videos/{video_id}/comments")
+async def get_video_comments(video_id: str):
+    try:
+        comments = await video_comments_collection.find({"video_id": video_id}).sort("created_at", -1).to_list(1000)
+        result = []
+        for comment in comments:
+            comment_copy = {k: v for k, v in comment.items() if k != '_id'}
+            result.append(VideoComment(**comment_copy))
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching comments: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Post a comment on a video
+@api_router.post("/biotube/videos/{video_id}/comments")
+async def post_video_comment(video_id: str, comment: VideoCommentCreate):
+    try:
+        # Verify video exists
+        video = await biotube_videos_collection.find_one({"id": video_id, "visibility": "public"})
+        if not video:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        new_comment = VideoComment(
+            video_id=video_id,
+            user_name=comment.user_name,
+            user_class=comment.user_class,
+            text=comment.text
+        )
+        
+        await video_comments_collection.insert_one(new_comment.dict())
+        return {"message": "Comment posted successfully", "id": new_comment.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error posting comment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Delete a comment (admin only)
+@api_router.delete("/admin/biotube/comments/{comment_id}")
+async def delete_video_comment(comment_id: str, _: bool = Depends(verify_admin_token)):
+    try:
+        result = await video_comments_collection.delete_one({"id": comment_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Comment not found")
+        return {"message": "Comment deleted successfully"}
+    except Exception as e:
+        logging.error(f"Error deleting comment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Like a comment
+@api_router.put("/biotube/comments/{comment_id}/like")
+async def like_video_comment(comment_id: str):
+    try:
+        result = await video_comments_collection.update_one(
+            {"id": comment_id},
+            {"$inc": {"likes": 1}}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Comment not found")
+        return {"message": "Comment liked successfully"}
+    except Exception as e:
+        logging.error(f"Error liking comment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============= BLOG ROUTES =============
+
+# Generate blog using Gemini AI
+@api_router.post("/blogs/generate")
+async def generate_blog_ai(request: BlogGenerateRequest, _: bool = Depends(verify_admin_token)):
+    try:
+        if not HAS_GENAI or not GEMINI_API_KEY:
+            raise HTTPException(status_code=400, detail="Gemini API not configured. Please add GEMINI_API_KEY to .env")
+        
+        prompt = f"""Write a comprehensive {request.tone} biology blog post about: {request.subject}
+
+TITLE: [Create an engaging title about {request.subject}]
+
+INTRODUCTION:
+[2-3 paragraphs introducing the topic and why it matters]
+
+SECTION 1: [Main Concept]
+[Explain the core concept in detail]
+
+SECTION 2: [How It Works]
+[Describe the mechanism or process]
+
+SECTION 3: [Real-World Applications]
+[Provide examples and uses]
+
+SECTION 4: [Key Takeaways]
+- Point 1
+- Point 2
+- Point 3
+- Point 4
+- Point 5
+
+CONCLUSION:
+[Summary and why this matters]
+
+Write it in a {request.tone} tone, suitable for biology students and science enthusiasts."""
+
+        # Try different models to find one that works
+        models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-pro']
+        response = None
+        last_error = None
+        
+        for model_name in models_to_try:
+            try:
+                logging.info(f"Attempting to use model: {model_name}")
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                logging.info(f"Successfully generated content using {model_name}")
+                break
+            except Exception as model_error:
+                last_error = model_error
+                logging.warning(f"Model {model_name} failed: {str(model_error)}")
+                continue
+        
+        if response is None or not response.text:
+            error_msg = f"All models failed. Last error: {str(last_error)}"
+            logging.error(error_msg)
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Failed to generate blog with Gemini. Error: {str(last_error)}. Please check your Gemini API key has proper access."
+            )
+        
+        content = response.text
+        title = f"{request.subject}: A Comprehensive Guide"
+        
+        if "TITLE:" in content:
+            try:
+                title_part = content.split("INTRODUCTION:")[0]
+                title = title_part.replace("TITLE:", "").strip()[:200]
+            except:
+                pass
+        
+        return {
+            "title": title,
+            "subject": request.subject,
+            "content": content,
+            "success": True
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error in blog generation: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Blog generation failed: {str(e)}. Make sure your Gemini API key is valid and has access to generative models."
+        )
+
+# Get all blogs (public)
+@api_router.get("/blogs")
+async def get_all_blogs():
+    try:
+        blogs = await blogs_collection.find(
+            {"visibility": "public"}
+        ).sort("created_at", -1).to_list(None)
+        
+        # Format blogs for response
+        for blog in blogs:
+            blog["_id"] = str(blog.get("_id", ""))
+        
+        return blogs
+    except Exception as e:
+        logging.error(f"Error fetching blogs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get specific blog by ID
+@api_router.get("/blogs/{blog_id}")
+async def get_blog_detail(blog_id: str):
+    try:
+        from bson import ObjectId
+        blog = await blogs_collection.find_one(
+            {"id": blog_id, "visibility": "public"}
+        )
+        
+        if not blog:
+            raise HTTPException(status_code=404, detail="Blog not found")
+        
+        # Increment view count
+        await blogs_collection.update_one(
+            {"id": blog_id},
+            {"$inc": {"views": 1}}
+        )
+        
+        blog["_id"] = str(blog.get("_id", ""))
+        return blog
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching blog: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Create blog (admin - manual or AI generated)
+@api_router.post("/admin/blogs")
+async def create_blog(blog: BlogCreate, _: bool = Depends(verify_admin_token)):
+    try:
+        # Generate QR code for the blog
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(f"https://zoomuseumsb.vercel.app/blog/{blog.id if hasattr(blog, 'id') else 'temp'}")
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convert QR code to base64
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+        qr_code_b64 = base64.b64encode(buffered.getvalue()).decode()
+        
+        new_blog = Blog(
+            **blog.dict(),
+            qr_code=qr_code_b64
+        )
+        
+        # Update QR code with actual blog ID
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(f"https://zoomuseumsb.vercel.app/blog/{new_blog.id}")
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+        new_blog.qr_code = base64.b64encode(buffered.getvalue()).decode()
+        
+        await blogs_collection.insert_one(new_blog.dict())
+        return {"message": "Blog created successfully", "id": new_blog.id}
+    except Exception as e:
+        logging.error(f"Error creating blog: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update blog
+@api_router.put("/admin/blogs/{blog_id}")
+async def update_blog(blog_id: str, updates: BlogUpdate, _: bool = Depends(verify_admin_token)):
+    try:
+        update_data = {k: v for k, v in updates.dict().items() if v is not None}
+        update_data["updated_at"] = get_ist_now()
+        
+        result = await blogs_collection.update_one(
+            {"id": blog_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Blog not found")
+        
+        return {"message": "Blog updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating blog: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Delete blog
+@api_router.delete("/admin/blogs/{blog_id}")
+async def delete_blog(blog_id: str, _: bool = Depends(verify_admin_token)):
+    try:
+        result = await blogs_collection.delete_one({"id": blog_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Blog not found")
+        return {"message": "Blog deleted successfully"}
+    except Exception as e:
+        logging.error(f"Error deleting blog: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get admin blog dashboard
+@api_router.get("/admin/blogs/dashboard")
+async def get_blog_dashboard(_: bool = Depends(verify_admin_token)):
+    try:
+        total_blogs = await blogs_collection.count_documents({})
+        total_views = 0
+        total_likes = 0
+        
+        blogs = await blogs_collection.find({}).to_list(None)
+        for blog in blogs:
+            total_views += blog.get("views", 0)
+            total_likes += blog.get("likes", 0)
+        
+        # Get recent blogs with proper formatting
+        recent_blogs_data = await blogs_collection.find({}).sort("created_at", -1).limit(5).to_list(None)
+        recent_blogs_formatted = []
+        for blog in recent_blogs_data:
+            recent_blogs_formatted.append({
+                "id": str(blog.get("id", "")),
+                "title": blog.get("title", ""),
+                "subject": blog.get("subject", ""),
+                "views": blog.get("views", 0),
+                "likes": blog.get("likes", 0),
+                "created_at": blog.get("created_at", ""),
+                "is_ai_generated": blog.get("is_ai_generated", False)
+            })
+        
+        return {
+            "total_blogs": total_blogs,
+            "total_views": total_views,
+            "total_likes": total_likes,
+            "recent_blogs": recent_blogs_formatted
+        }
+    except Exception as e:
+        logging.error(f"Error fetching blog dashboard: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get all blogs (admin can see all)
+@api_router.get("/admin/blogs")
+async def get_all_blogs_admin(_: bool = Depends(verify_admin_token)):
+    try:
+        blogs = await blogs_collection.find({}).sort("created_at", -1).to_list(None)
+        for blog in blogs:
+            blog["_id"] = str(blog.get("_id", ""))
+        return blogs
+    except Exception as e:
+        logging.error(f"Error fetching blogs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Like a blog
+@api_router.put("/blogs/{blog_id}/like")
+async def like_blog(blog_id: str):
+    try:
+        result = await blogs_collection.update_one(
+            {"id": blog_id},
+            {"$inc": {"likes": 1}}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Blog not found")
+        return {"message": "Blog liked successfully"}
+    except Exception as e:
+        logging.error(f"Error liking blog: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Create blog suggestion
+@api_router.post("/blogs/suggestions")
+async def create_blog_suggestion(suggestion: BlogSuggestionCreate):
+    try:
+        new_suggestion = BlogSuggestion(**suggestion.dict())
+        await blog_suggestions_collection.insert_one(new_suggestion.dict())
+        return {"message": "Blog suggestion submitted successfully", "id": new_suggestion.id}
+    except Exception as e:
+        logging.error(f"Error creating blog suggestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get blog suggestions (admin)
+@api_router.get("/admin/blogs/suggestions")
+async def get_blog_suggestions(_: bool = Depends(verify_admin_token)):
+    try:
+        suggestions = await blog_suggestions_collection.find({}).sort("created_at", -1).to_list(None)
+        # Format suggestions to ensure consistency
+        formatted = []
+        for sugg in suggestions:
+            formatted.append({
+                "id": str(sugg.get("id", "")),
+                "blog_subject": sugg.get("blog_subject", ""),
+                "user_name": sugg.get("user_name", ""),
+                "user_email": sugg.get("user_email", ""),
+                "blog_description": sugg.get("blog_description", ""),
+                "status": sugg.get("status", "pending"),
+                "created_at": sugg.get("created_at", ""),
+                "updated_at": sugg.get("updated_at", "")
+            })
+        return formatted
+    except Exception as e:
+        logging.error(f"Error fetching blog suggestions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update blog suggestion status
+@api_router.put("/admin/blogs/suggestions/{suggestion_id}/status")
+async def update_blog_suggestion_status(suggestion_id: str, status: dict, _: bool = Depends(verify_admin_token)):
+    try:
+        result = await blog_suggestions_collection.update_one(
+            {"id": suggestion_id},
+            {"$set": {"status": status.get("status"), "updated_at": get_ist_now()}}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        return {"message": "Suggestion status updated successfully"}
+    except Exception as e:
+        logging.error(f"Error updating suggestion status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ZooMuseum AI Chatbot Endpoint
+@api_router.post("/ai/ask")
+async def ask_biology_question(request: BiologyQuestion):
+    """
+    Ask ZooMuseum Intelligence about any biology topic (Classes 1-12, NEET, degree, PhD level)
+    Only answers biology-related questions
+    """
+    try:
+        if not HAS_GENAI or not GEMINI_API_KEY:
+            raise HTTPException(status_code=503, detail="AI service not available")
+        
+        question = request.question.strip()
+        if not question:
+            raise HTTPException(status_code=400, detail="Question cannot be empty")
+        
+        # Use same model as organism generation (gemini-2.5-flash)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        # Shorter, more efficient prompt to reduce token usage
+        comprehensive_prompt = f"""You are ZooMuseum Intelligence. ONLY answer biology questions.
+
+Question: {question}
+
+Respond ONLY with JSON (no other text):
+{{"answer": "2-3 paragraphs, clear and scientific", "organisms": ["org1", "org2"], "suggestions": ["Q1?", "Q2?"]}}
+
+If NOT biology: {{"answer": "I only help with biology questions!", "organisms": [], "suggestions": ["Ask about animals", "Ask about plants", "Ask about genetics"]}}"""
+        
+        response = model.generate_content(comprehensive_prompt)
+        response_text = response.text.strip()
+        
+        # Parse JSON response - handle various formats
+        try:
+            response_text = response_text.strip()
+            
+            # Remove 'json' prefix if present (e.g., ```json {"...})
+            if response_text.startswith('```json'):
+                response_text = response_text[7:].strip()
+            if response_text.startswith('json'):
+                response_text = response_text[4:].strip()
+            
+            # Remove markdown code blocks if present
+            if response_text.startswith('```'):
+                response_text = response_text[3:].strip()
+            if response_text.endswith('```'):
+                response_text = response_text[:-3].strip()
+            
+            # Find JSON object
+            if "{" in response_text:
+                json_start = response_text.find("{")
+                json_end = response_text.rfind("}") + 1
+                json_str = response_text[json_start:json_end]
+            else:
+                json_str = response_text
+                
+            result = json.loads(json_str)
+            
+            return {
+                "answer": result.get("answer", "").strip(),
+                "related_organisms": result.get("organisms", [])[:5],
+                "confidence": "high",
+                "suggestions": result.get("suggestions", [])[:3]
+            }
+        except json.JSONDecodeError as e:
+            # If JSON parsing fails, try to extract answer text anyway
+            if "answer" in response_text.lower():
+                # Try to find content between "answer" and next field
+                try:
+                    start = response_text.lower().find('"answer"') + 8
+                    end = response_text.find('"', start + 2)
+                    if end > start:
+                        answer = response_text[start:end].strip().strip('":,')
+                        return {
+                            "answer": answer,
+                            "related_organisms": [],
+                            "confidence": "medium",
+                            "suggestions": ["Can you explain more?", "What are related topics?"]
+                        }
+                except:
+                    pass
+            
+            return {
+                "answer": response_text[:500],  # Return first 500 chars if parsing fails
+                "related_organisms": [],
+                "confidence": "low",
+                "suggestions": ["Ask another question?"]
+            }
+        
+    except Exception as e:
+        error_msg = str(e)
+        logging.error(f"Error in AI chatbot: {error_msg}")
+        
+        # Check for rate limit errors
+        if "429" in error_msg or "quota" in error_msg.lower():
+            raise HTTPException(
+                status_code=429, 
+                detail="API quota exceeded. Please try again in a few moments. The free tier has limited requests per day."
+            )
+        elif "SAFETY" in error_msg or "safety" in error_msg:
+            raise HTTPException(
+                status_code=400,
+                detail="The question contains content that I cannot discuss. Please ask a different biology question."
+            )
+        else:
+            raise HTTPException(status_code=500, detail=f"Error processing question: {error_msg[:100]}")
+
+
+# ==================== SITE SETTINGS (PERSONALIZATION) ENDPOINTS ====================
+
+# Get site settings (public)
+@api_router.get("/site-settings")
+async def get_site_settings():
+    try:
+        settings = await site_settings_collection.find_one({"id": "site_settings"})
+        if not settings:
+            # Return default settings if none exist
+            return {
+                "website_name": "BioMuseum",
+                "initiative_text": "An Initiative by",
+                "college_name": "SBES College of Science",
+                "department_name": "Zoology Department",
+                "department_name_font_size": 24,
+                "logo_url": None,
+                "primary_color": "#7c3aed",
+                "secondary_color": "#3b82f6",
+                "font_url": "",
+                "font_family": "Poppins"
+            }
+        settings.pop("_id", None)
+        # Ensure all fields exist with defaults
+        settings.setdefault("primary_color", "#7c3aed")
+        settings.setdefault("secondary_color", "#3b82f6")
+        settings.setdefault("font_url", "")
+        settings.setdefault("font_family", "Poppins")
+        settings.setdefault("department_name_font_size", 24)
+        return settings
+    except Exception as e:
+        logging.error(f"Error fetching site settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update site settings (admin only)
+@api_router.put("/admin/site-settings")
+async def update_site_settings(settings: SiteSettingsUpdate, _: bool = Depends(verify_admin_token)):
+    try:
+        update_data = settings.dict(exclude_unset=True)
+        update_data["updated_at"] = get_ist_now()
+        
+        result = await site_settings_collection.update_one(
+            {"id": "site_settings"},
+            {"$set": update_data},
+            upsert=True
+        )
+        
+        # Get and return updated settings
+        updated_settings = await site_settings_collection.find_one({"id": "site_settings"})
+        updated_settings.pop("_id", None)
+        return updated_settings
+    except Exception as e:
+        logging.error(f"Error updating site settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== CONTACT INFORMATION ENDPOINTS ====================
+
+class ContactUpdate(BaseModel):
+    contact_email: Optional[str] = None
+    support_email: Optional[str] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+
+# Get contact information (public)
+@api_router.get("/contact-info")
+async def get_contact_info():
+    try:
+        settings = await site_settings_collection.find_one({"id": "site_settings"})
+        if not settings:
+            return {
+                "contact_email": "sarthaknk08@gmail.com",
+                "support_email": "sarthaknk08@gmail.com",
+                "phone_number": "",
+                "address": ""
+            }
+        
+        return {
+            "contact_email": settings.get("contact_email", "sarthaknk08@gmail.com"),
+            "support_email": settings.get("support_email", "sarthaknk08@gmail.com"),
+            "phone_number": settings.get("phone_number", ""),
+            "address": settings.get("address", "")
+        }
+    except Exception as e:
+        logging.error(f"Error fetching contact info: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update contact information (admin only)
+@api_router.put("/admin/contact-info")
+async def update_contact_info(contact: ContactUpdate, _: bool = Depends(verify_admin_token)):
+    try:
+        update_data = contact.dict(exclude_unset=True)
+        update_data["updated_at"] = get_ist_now()
+        
+        result = await site_settings_collection.update_one(
+            {"id": "site_settings"},
+            {"$set": update_data},
+            upsert=True
+        )
+        
+        # Get and return updated contact info
+        settings = await site_settings_collection.find_one({"id": "site_settings"})
+        return {
+            "contact_email": settings.get("contact_email", "sarthaknk08@gmail.com"),
+            "support_email": settings.get("support_email", "sarthaknk08@gmail.com"),
+            "phone_number": settings.get("phone_number", ""),
+            "address": settings.get("address", "")
+        }
+    except Exception as e:
+        logging.error(f"Error updating contact info: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== MAINTENANCE STATUS ENDPOINTS ====================
+
+class MaintenanceUpdate(BaseModel):
+    """Request model for updating maintenance status"""
+    status: str  # paid, unpaid, or due
+    next_billing_date: Optional[str] = None
+    admin_note: str = ""
+    charges: Optional[float] = None  # Amount to be charged
+    
+class MaintenanceStatusResponse(BaseModel):
+    """Response model for maintenance status"""
+    success: bool
+    status: str
+    message: str
+    next_billing_date: Optional[str] = None
+    admin_note: str = ""
+    charges: Optional[float] = None
+    updated_at: str
+    closable: bool
+
+# ==================== PAYMENT MODELS ====================
+
+class Payment(BaseModel):
+    """Payment announcement model"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    amount: float  # Payment amount in rupees
+    note: str  # Payment description/note
+    description: Optional[str] = ""  # Additional details
+    payment_method: Optional[str] = "UPI"  # UPI, Bank Transfer, Card, etc.
+    payment_date: Optional[str] = None  # When payment is due
+    reference_number: Optional[str] = None  # Invoice/Receipt number
+    category: Optional[str] = "General"  # General, Maintenance, Subscription, etc.
+    status: str = "pending"  # pending, completed, failed
+    is_read: bool = False  # For notification badge in admin panel
+    priority: str = "normal"  # low, normal, high, urgent
+    image_url: Optional[str] = None  # QR code or payment image URL (base64 or web URL)
+    created_at: str = Field(default_factory=get_ist_now)
+    created_by: str = "superadmin"  # Who created this announcement
+    updated_at: str = Field(default_factory=get_ist_now)
+    updated_by: Optional[str] = None
+
+class PaymentCreate(BaseModel):
+    """Request model for creating a payment announcement"""
+    amount: float
+    note: str
+    description: Optional[str] = ""
+    payment_method: Optional[str] = "UPI"
+    payment_date: Optional[str] = None
+    reference_number: Optional[str] = None
+    category: Optional[str] = "General"
+    status: Optional[str] = "pending"
+    priority: Optional[str] = "normal"
+    image_url: Optional[str] = None  # QR code or payment image URL
+
+class PaymentUpdate(BaseModel):
+    """Request model for updating a payment"""
+    amount: Optional[float] = None
+    note: Optional[str] = None
+    description: Optional[str] = None
+    payment_method: Optional[str] = None
+    payment_date: Optional[str] = None
+    reference_number: Optional[str] = None
+    category: Optional[str] = None
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    image_url: Optional[str] = None
+    is_read: Optional[bool] = None
+
+# Update maintenance status (admin only) - Maintenance Admin Endpoint
+@api_router.post("/maintenance/admin/update-status")
+async def admin_update_maintenance_status(update: MaintenanceUpdate, _: bool = Depends(verify_admin_token)):
+    """
+    Update the website maintenance status for the main site.
+    Admin only. Used by maintenance admin panel to control the popup shown on homepage.
+    """
+    try:
+        if update.status not in ["paid", "unpaid", "due"]:
+            raise HTTPException(status_code=400, detail="Status must be 'paid', 'unpaid', or 'due'")
+        
+        now = get_ist_now()
+        
+        # Prepare status message
+        status_messages = {
+            "paid": "Website maintenance is paid and up to date.",
+            "unpaid": "Backend Maintenance",
+            "due": "Maintenance payment is due."
+        }
+        
+        # Update or create the maintenance record
+        update_data = {
+            "status": update.status,
+            "message": status_messages.get(update.status, ""),
+            "admin_note": update.admin_note,
+            "next_billing_date": update.next_billing_date,
+            "charges": update.charges,
+            "updated_at": now,
+            "updated_by": "sarthaknk07"
+        }
+        
+        # Add to history
+        history_entry = {
+            "status": update.status,
+            "timestamp": now,
+            "changed_by": "sarthaknk07",
+            "note": update.admin_note,
+            "charges": update.charges
+        }
+        
+        result = await maintenance_controls.update_one(
+            {"_id": "biomuseum-main"},
+            {
+                "$set": update_data,
+                "$push": {"history": history_entry}
+            },
+            upsert=True
+        )
+        
+        logging.info(f"[MAINTENANCE] Status updated to '{update.status}' at {now}")
+        
+        return {
+            "success": True,
+            "message": f"Maintenance status updated to '{update.status}' successfully",
+            "status": update.status,
+            "next_billing_date": update.next_billing_date,
+            "admin_note": update.admin_note,
+            "charges": update.charges,
+            "updated_at": now
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating maintenance status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get current maintenance status (admin only)
+@api_router.get("/maintenance/admin/status")
+async def admin_get_maintenance_status(_: bool = Depends(verify_admin_token)):
+    """
+    Get the current maintenance status. Admin only.
+    """
+    try:
+        maintenance_doc = await maintenance_controls.find_one({"_id": "biomuseum-main"})
+        
+        if not maintenance_doc:
+            # Return default
+            return {
+                "success": True,
+                "status": "paid",
+                "message": "",
+                "next_billing_date": None,
+                "admin_note": "",
+                "updated_at": get_ist_now(),
+                "closable": True
+            }
+        
+        maintenance_doc.pop("_id", None)
+        
+        # Determine if popup is closable based on status
+        closable = maintenance_doc.get("status") != "unpaid"
+        
+        return {
+            "success": True,
+            "status": maintenance_doc.get("status", "paid"),
+            "message": maintenance_doc.get("message", ""),
+            "next_billing_date": maintenance_doc.get("next_billing_date"),
+            "admin_note": maintenance_doc.get("admin_note", ""),
+            "updated_at": maintenance_doc.get("updated_at", get_ist_now()),
+            "closable": closable
+        }
+    except Exception as e:
+        logging.error(f"Error getting maintenance status: {e}")
+        return {
+            "success": False,
+            "status": "paid",
+            "message": "Error fetching status",
+            "error": str(e)
+        }
+
+# Get maintenance history (admin only)
+@api_router.get("/maintenance/admin/history")
+async def admin_get_maintenance_history(_: bool = Depends(verify_admin_token)):
+    """
+    Get the maintenance status change history. Admin only.
+    """
+    try:
+        maintenance_doc = await maintenance_controls.find_one({"_id": "biomuseum-main"})
+        
+        if not maintenance_doc:
+            return {
+                "success": True,
+                "history": [],
+                "total_changes": 0
+            }
+        
+        history = maintenance_doc.get("history", [])
+        # Sort by most recent first
+        history = sorted(history, key=lambda x: x.get("timestamp", ""), reverse=True)
+        
+        return {
+            "success": True,
+            "history": history,
+            "total_changes": len(history)
+        }
+    except Exception as e:
+        logging.error(f"Error getting maintenance history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get maintenance status for the public (used by homepage popup)
+@api_router.get("/maintenance/status")
+async def get_maintenance_status_public():
+    """
+    Get maintenance status for the main site (public endpoint).
+    Used by homepage to display maintenance popup.
+    """
+    try:
+        maintenance_doc = await maintenance_controls.find_one({"_id": "biomuseum-main"})
+        
+        if not maintenance_doc:
+            # Default: paid status means no popup
+            return {
+                "success": True,
+                "status": "paid",
+                "message": "",
+                "admin_note": "",
+                "show_popup": False,
+                "closable": True
+            }
+        
+        status = maintenance_doc.get("status", "paid")
+        message = maintenance_doc.get("message", "")
+        admin_note = maintenance_doc.get("admin_note", "")
+        charges = maintenance_doc.get("charges")
+        
+        # Determine display rules
+        show_popup = status in ["unpaid", "due"]
+        closable = status != "unpaid"  # unpaid is non-closable
+        
+        return {
+            "success": True,
+            "status": status,
+            "message": message,
+            "admin_note": admin_note,
+            "charges": charges,
+            "next_billing_date": maintenance_doc.get("next_billing_date"),
+            "show_popup": show_popup,
+            "closable": closable
+        }
+    except Exception as e:
+        logging.error(f"Error fetching maintenance status: {e}")
+        return {
+            "success": True,
+            "status": "paid",
+            "message": "",
+            "admin_note": "",
+            "show_popup": False,
+            "closable": True
+        }
+
+# Get maintenance status for a client (public endpoint)
+@api_router.get("/maintenance/status/{client_id}")
+async def get_maintenance_status(client_id: str):
+    """
+    Fetch maintenance status for a specific client.
+    Client can call this periodically to check if they need to show a maintenance popup.
+    
+    Returns:
+    - status: "active" | "due" | "suspended"
+    - message: Custom message to display in popup
+    - last_paid_date: When payment was received
+    - next_billing_date: When next payment is due
+    """
+    try:
+        if not client_id or not client_id.strip():
+            raise HTTPException(status_code=400, detail="Client ID is required")
+        
+        client = await maintenance_controls.find_one({"client_id": client_id})
+        
+        if not client:
+            # Return default active status if client not found
+            return {
+                "success": True,
+                "status": "active",
+                "message": "",
+                "last_paid_date": None,
+                "next_billing_date": None,
+                "client_id": client_id
+            }
+        
+        client.pop("_id", None)
+        return {
+            "success": True,
+            "status": client.get("status", "active"),
+            "message": client.get("message", "") or client.get("notes", ""),
+            "last_paid_date": client.get("last_paid_date"),
+            "next_billing_date": client.get("next_billing_date"),
+            "client_id": client_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching maintenance status for {client_id}: {e}")
+        return {
+            "success": True,
+            "status": "active",
+            "message": "",
+            "client_id": client_id
+        }
+
+# Create or update client status (admin only)
+@api_router.post("/admin/clients")
+async def create_client(client: ClientStatus, _: bool = Depends(verify_admin_token)):
+    """Admin endpoint to create or update a client's status"""
+    try:
+        client_data = client.dict()
+        client_data["updated_at"] = get_ist_now()
+        
+        result = await maintenance_controls.update_one(
+            {"client_id": client.client_id},
+            {"$set": client_data},
+            upsert=True
+        )
+        
+        return {
+            "success": True,
+            "message": "Client status updated successfully",
+            "client_id": client.client_id
+        }
+    except Exception as e:
+        logging.error(f"Error updating client status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== PAYMENTS ENDPOINTS ====================
+
+# Create a new payment announcement (admin only)
+@api_router.post("/admin/payments")
+async def create_payment(payment: PaymentCreate, _: bool = Depends(verify_admin_token)):
+    """
+    Create a new payment announcement. Admin only.
+    This creates a notification that appears in the admin panel.
+    """
+    try:
+        if payments_collection is None:
+            logging.error("payments_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized.")
+        
+        # Validate amount
+        if payment.amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+        
+        # Validate note
+        if not payment.note or len(payment.note.strip()) == 0:
+            raise HTTPException(status_code=400, detail="Payment note is required")
+        
+        now = get_ist_now()
+        payment_doc = {
+            "_id": str(uuid.uuid4()),
+            "amount": float(payment.amount),
+            "note": payment.note,
+            "description": payment.description or "",
+            "payment_method": payment.payment_method or "UPI",
+            "payment_date": payment.payment_date,
+            "reference_number": payment.reference_number,
+            "category": payment.category or "General",
+            "status": payment.status or "pending",
+            "is_read": False,
+            "priority": payment.priority or "normal",
+            "image_url": payment.image_url,
+            "created_at": now,
+            "created_by": "superadmin",
+            "updated_at": now,
+            "updated_by": None
+        }
+        
+        result = await payments_collection.insert_one(payment_doc)
+        
+        logging.info(f"[PAYMENT] New payment created: ₹{payment.amount} - {payment.note}")
+        
+        return {
+            "success": True,
+            "message": "Payment announcement created successfully",
+            "payment_id": payment_doc["_id"],
+            "amount": payment.amount,
+            "created_at": now
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error creating payment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get all payments (admin only)
+@api_router.get("/admin/payments")
+async def get_all_payments(_: bool = Depends(verify_admin_token)):
+    """
+    Get all payment announcements. Admin only.
+    Returns payments sorted by most recent first.
+    """
+    try:
+        if payments_collection is None:
+            logging.error("payments_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized.")
+        
+        payments = await payments_collection.find().sort("created_at", -1).to_list(1000)
+        
+        # Convert _id to id for consistency
+        for payment in payments:
+            payment["id"] = payment.pop("_id", "")
+        
+        unread_count = sum(1 for p in payments if not p.get("is_read", False))
+        
+        return {
+            "success": True,
+            "payments": payments,
+            "total": len(payments),
+            "unread_count": unread_count
+        }
+    except Exception as e:
+        logging.error(f"Error fetching payments: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get unread payments count (for badge notification)
+@api_router.get("/admin/payments/unread/count")
+async def get_unread_payments_count(_: bool = Depends(verify_admin_token)):
+    """
+    Get count of unread payment announcements. Used for badge notification.
+    """
+    try:
+        if payments_collection is None:
+            raise HTTPException(status_code=500, detail="Database not initialized.")
+        
+        unread_count = await payments_collection.count_documents({"is_read": False})
+        
+        return {
+            "success": True,
+            "unread_count": unread_count,
+            "has_unread": unread_count > 0
+        }
+    except Exception as e:
+        logging.error(f"Error fetching unread payments count: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update a payment (admin only)
+@api_router.put("/admin/payments/{payment_id}")
+async def update_payment(payment_id: str, payment: PaymentUpdate, _: bool = Depends(verify_admin_token)):
+    """
+    Update a payment announcement. Admin only.
+    """
+    try:
+        if payments_collection is None:
+            raise HTTPException(status_code=500, detail="Database not initialized.")
+        
+        # Check if payment exists
+        existing_payment = await payments_collection.find_one({"_id": payment_id})
+        if not existing_payment:
+            raise HTTPException(status_code=404, detail="Payment not found")
+        
+        # Build update data (only include provided fields)
+        update_data = {}
+        if payment.amount is not None and payment.amount > 0:
+            update_data["amount"] = float(payment.amount)
+        if payment.note is not None:
+            update_data["note"] = payment.note
+        if payment.description is not None:
+            update_data["description"] = payment.description
+        if payment.payment_method is not None:
+            update_data["payment_method"] = payment.payment_method
+        if payment.payment_date is not None:
+            update_data["payment_date"] = payment.payment_date
+        if payment.reference_number is not None:
+            update_data["reference_number"] = payment.reference_number
+        if payment.category is not None:
+            update_data["category"] = payment.category
+        if payment.status is not None:
+            update_data["status"] = payment.status
+        if payment.is_read is not None:
+            update_data["is_read"] = payment.is_read
+        if payment.priority is not None:
+            update_data["priority"] = payment.priority
+        if payment.image_url is not None:
+            update_data["image_url"] = payment.image_url
+        
+        update_data["updated_at"] = get_ist_now()
+        update_data["updated_by"] = "superadmin"
+        
+        result = await payments_collection.update_one(
+            {"_id": payment_id},
+            {"$set": update_data}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=400, detail="No changes made")
+        
+        logging.info(f"[PAYMENT] Payment updated: {payment_id}")
+        
+        return {
+            "success": True,
+            "message": "Payment updated successfully",
+            "payment_id": payment_id,
+            "updated_at": update_data["updated_at"]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating payment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Delete a payment (admin only)
+@api_router.delete("/admin/payments/{payment_id}")
+async def delete_payment(payment_id: str, _: bool = Depends(verify_admin_token)):
+    """
+    Delete a payment announcement. Admin only.
+    """
+    try:
+        if payments_collection is None:
+            raise HTTPException(status_code=500, detail="Database not initialized.")
+        
+        # Check if payment exists
+        existing_payment = await payments_collection.find_one({"_id": payment_id})
+        if not existing_payment:
+            raise HTTPException(status_code=404, detail="Payment not found")
+        
+        result = await payments_collection.delete_one({"_id": payment_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=400, detail="Failed to delete payment")
+        
+        logging.info(f"[PAYMENT] Payment deleted: {payment_id}")
+        
+        return {
+            "success": True,
+            "message": "Payment deleted successfully",
+            "payment_id": payment_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error deleting payment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Mark payment as read (admin only)
+@api_router.put("/admin/payments/{payment_id}/mark-read")
+async def mark_payment_as_read(payment_id: str, _: bool = Depends(verify_admin_token)):
+    """
+    Mark a payment as read. Used to clear notification badge.
+    """
+    try:
+        if payments_collection is None:
+            raise HTTPException(status_code=500, detail="Database not initialized.")
+        
+        result = await payments_collection.update_one(
+            {"_id": payment_id},
+            {"$set": {"is_read": True, "updated_at": get_ist_now()}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Payment not found")
+        
+        return {
+            "success": True,
+            "message": "Payment marked as read"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error marking payment as read: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== CONFIGURATION NOTES ENDPOINTS ====================
+
+# Create a new config note (admin only)
+@api_router.post("/admin/config-notes")
+async def create_config_note(note: ConfigNoteCreate, _: bool = Depends(verify_admin_token)):
+    """
+    Create a new configuration note for storing important deployment information.
+    Admin only.
+    """
+    try:
+        # Verify collection exists
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        # Check if key already exists
+        existing = await config_notes_collection.find_one({"key": note.key})
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Config note with key '{note.key}' already exists")
+        
+        now = get_ist_now()
+        config_note = {
+            "id": str(uuid.uuid4()),
+            "key": note.key,
+            "value": note.value,
+            "category": note.category or "general",
+            "description": note.description,
+            "is_sensitive": note.is_sensitive or False,
+            "is_locked": note.is_locked or False,
+            "lock_reason": note.lock_reason,
+            "change_requests": [],
+            "is_approved": True,
+            "approval_required": True,
+            "created_at": now,
+            "created_by": "admin",
+            "updated_at": now,
+            "updated_by": "admin"
+        }
+        
+        result = await config_notes_collection.insert_one(config_note)
+        
+        if not result.inserted_id:
+            raise HTTPException(status_code=500, detail="Failed to insert config note into database")
+        
+        logging.info(f"✓ Config note '{note.key}' created successfully with ID: {result.inserted_id}")
+        
+        # Return minimal response without the document (frontend will fetch fresh data anyway)
+        # This avoids MongoDB ObjectId serialization issues
+        return {
+            "success": True,
+            "message": f"Config note '{note.key}' created successfully",
+            "id": config_note["id"]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"❌ Error creating config note: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating config note: {str(e)}")
+
+# Get all config notes (admin only)
+@api_router.get("/admin/config-notes")
+async def get_all_config_notes(_: bool = Depends(verify_admin_token)):
+    """Fetch all configuration notes. Admin only."""
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        notes = await config_notes_collection.find({}).to_list(None)
+        
+        # Remove _id field and return
+        for note in notes:
+            note.pop("_id", None)
+        
+        return {
+            "success": True,
+            "count": len(notes),
+            "config_notes": notes
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"❌ Error fetching config notes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching config notes: {str(e)}")
+
+# Get a specific config note by ID (admin only)
+@api_router.get("/admin/config-notes/{note_id}")
+async def get_config_note(note_id: str, _: bool = Depends(verify_admin_token)):
+    """Fetch a specific configuration note by ID. Admin only."""
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        note = await config_notes_collection.find_one({"id": note_id})
+        
+        if not note:
+            raise HTTPException(status_code=404, detail="Config note not found")
+        
+        note.pop("_id", None)
+        return {
+            "success": True,
+            "config_note": note
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching config note: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update an unlocked config note (admin only)
+@api_router.put("/admin/config-notes/{note_id}")
+async def update_config_note(note_id: str, update: ConfigNoteUpdate, _: bool = Depends(verify_admin_token)):
+    """
+    Update a configuration note. 
+    If the note is locked, a change request will be created that requires superadmin approval.
+    Admin only.
+    """
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        note = await config_notes_collection.find_one({"id": note_id})
+        
+        if not note:
+            raise HTTPException(status_code=404, detail="Config note not found")
+        
+        now = get_ist_now()
+        
+        # If note is locked, create a change request instead
+        if note.get("is_locked", False):
+            change_request = {
+                "id": str(uuid.uuid4()),
+                "config_note_id": note_id,
+                "requested_key": note.get("key"),
+                "requested_value": update.value or note.get("value"),
+                "reason": update.description,
+                "status": "pending",
+                "requested_by": "admin",
+                "requested_at": now,
+                "approved_by": None,
+                "approved_at": None,
+                "approval_reason": None
+            }
+            
+            # Add change request to the note's change_requests array
+            await config_notes_collection.update_one(
+                {"id": note_id},
+                {
+                    "$push": {
+                        "change_requests": change_request
+                    }
+                }
+            )
+            
+            return {
+                "success": True,
+                "message": "Config note is locked. Change request created and awaiting superadmin approval.",
+                "change_request": change_request,
+                "requires_approval": True
+            }
+        
+        # If not locked, update directly
+        update_data = {}
+        if update.key is not None:
+            update_data["key"] = update.key
+        if update.value is not None:
+            update_data["value"] = update.value
+        if update.category is not None:
+            update_data["category"] = update.category
+        if update.description is not None:
+            update_data["description"] = update.description
+        if update.is_sensitive is not None:
+            update_data["is_sensitive"] = update.is_sensitive
+        if update.is_locked is not None:
+            update_data["is_locked"] = update.is_locked
+        if update.lock_reason is not None:
+            update_data["lock_reason"] = update.lock_reason
+        
+        update_data["updated_at"] = now
+        update_data["updated_by"] = "admin"
+        
+        await config_notes_collection.update_one(
+            {"id": note_id},
+            {"$set": update_data}
+        )
+        
+        updated_note = await config_notes_collection.find_one({"id": note_id})
+        updated_note.pop("_id", None)
+        
+        return {
+            "success": True,
+            "message": "Config note updated successfully",
+            "config_note": updated_note
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating config note: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Lock/Unlock a config note (admin only)
+@api_router.post("/admin/config-notes/{note_id}/lock")
+async def lock_config_note(note_id: str, data: dict, _: bool = Depends(verify_admin_token)):
+    """
+    Lock or unlock a configuration note. Locked notes require superadmin approval to change.
+    Admin only.
+    """
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        note = await config_notes_collection.find_one({"id": note_id})
+        
+        if not note:
+            raise HTTPException(status_code=404, detail="Config note not found")
+        
+        lock_status = data.get("is_locked", True)
+        lock_reason = data.get("lock_reason", None)
+        
+        now = get_ist_now()
+        
+        update_data = {
+            "is_locked": lock_status,
+            "lock_reason": lock_reason if lock_status else None,
+            "updated_at": now,
+            "updated_by": "admin"
+        }
+        
+        await config_notes_collection.update_one(
+            {"id": note_id},
+            {"$set": update_data}
+        )
+        
+        status_text = "locked" if lock_status else "unlocked"
+        message = f"Config note has been {status_text}."
+        if lock_status and lock_reason:
+            message += f"\nReason: {lock_reason}"
+        
+        return {
+            "success": True,
+            "message": message,
+            "is_locked": lock_status
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"❌ Error locking config note: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error locking config note: {str(e)}")
+
+# Request change on a locked config note (admin only)
+@api_router.post("/admin/config-notes/{note_id}/request-change")
+async def request_change(note_id: str, request: ConfigNoteChangeRequest, _: bool = Depends(verify_admin_token)):
+    """
+    Request a change to a locked configuration note.
+    The request will be sent for superadmin approval.
+    Admin only.
+    """
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        note = await config_notes_collection.find_one({"id": note_id})
+        
+        if not note:
+            raise HTTPException(status_code=404, detail="Config note not found")
+        
+        now = get_ist_now()
+        change_request = {
+            "id": str(uuid.uuid4()),
+            "config_note_id": note_id,
+            "requested_key": note.get("key"),
+            "new_value": request.new_value,
+            "reason": request.reason,
+            "status": "pending",
+            "requested_by": request.requested_by or "admin",
+            "requested_at": now,
+            "approved_by": None,
+            "approved_at": None,
+            "approval_reason": None
+        }
+        
+        # Add the change request to the note
+        await config_notes_collection.update_one(
+            {"id": note_id},
+            {
+                "$push": {
+                    "change_requests": change_request
+                }
+            }
+        )
+        
+        return {
+            "success": True,
+            "message": "Change request created successfully. Awaiting superadmin approval.",
+            "change_request": change_request
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error creating change request: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Approve or reject change request (superadmin only)
+@api_router.post("/admin/config-notes/change-request/{change_request_id}/approve")
+async def approve_change_request(change_request_id: str, approval: ConfigNoteChangeApproval, _: bool = Depends(verify_admin_token)):
+    """
+    Approve or reject a change request for a locked config note.
+    Superadmin only.
+    """
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        # Find the config note with this change request
+        note = await config_notes_collection.find_one({
+            "change_requests.id": change_request_id
+        })
+        
+        if not note:
+            raise HTTPException(status_code=404, detail="Change request not found")
+        
+        # Find the specific change request
+        change_request = None
+        for cr in note.get("change_requests", []):
+            if cr["id"] == change_request_id:
+                change_request = cr
+                break
+        
+        if not change_request:
+            raise HTTPException(status_code=404, detail="Change request not found")
+        
+        now = get_ist_now()
+        
+        if approval.approved:
+            # Approve and apply the change
+            update_changes = {
+                "value": change_request.get("new_value"),
+                "updated_at": now,
+                "updated_by": approval.approved_by or "superadmin"
+            }
+            
+            await config_notes_collection.update_one(
+                {"id": note["id"]},
+                {
+                    "$set": update_changes
+                }
+            )
+            
+            # Update the change request status
+            await config_notes_collection.update_one(
+                {"id": note["id"], "change_requests.id": change_request_id},
+                {
+                    "$set": {
+                        "change_requests.$.status": "approved",
+                        "change_requests.$.approved_by": approval.approved_by or "superadmin",
+                        "change_requests.$.approved_at": now,
+                        "change_requests.$.approval_reason": approval.approval_reason
+                    }
+                }
+            )
+            
+            message = f"Change request approved and applied to '{note.get('key')}'."
+        else:
+            # Reject the change
+            await config_notes_collection.update_one(
+                {"id": note["id"], "change_requests.id": change_request_id},
+                {
+                    "$set": {
+                        "change_requests.$.status": "rejected",
+                        "change_requests.$.approved_by": approval.approved_by or "superadmin",
+                        "change_requests.$.approved_at": now,
+                        "change_requests.$.approval_reason": approval.approval_reason
+                    }
+                }
+            )
+            
+            message = f"Change request rejected for '{note.get('key')}'."
+        
+        return {
+            "success": True,
+            "message": message,
+            "status": "approved" if approval.approved else "rejected"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"❌ Error approving change request: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error approving change request: {str(e)}")
+
+# Delete a config note (admin only)
+@api_router.delete("/admin/config-notes/{note_id}")
+async def delete_config_note(note_id: str, _: bool = Depends(verify_admin_token)):
+    """Delete a configuration note. Admin only."""
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        result = await config_notes_collection.delete_one({"id": note_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Config note not found")
+        
+        return {
+            "success": True,
+            "message": "Config note deleted successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"❌ Error deleting config note: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting config note: {str(e)}")
+
+# Get pending change requests (admin only)
+@api_router.get("/admin/config-notes/change-requests/pending")
+async def get_pending_change_requests(_: bool = Depends(verify_admin_token)):
+    """Get all pending change requests. Admin only."""
+    try:
+        if config_notes_collection is None:
+            logging.error("config_notes_collection is None - MongoDB not initialized")
+            raise HTTPException(status_code=500, detail="Database not initialized. Please try again.")
+        
+        notes = await config_notes_collection.find(
+            {"change_requests.status": "pending"}
+        ).to_list(None)
+        
+        pending_requests = []
+        for note in notes:
+            for cr in note.get("change_requests", []):
+                if cr.get("status") == "pending":
+                    cr["config_note_key"] = note.get("key")
+                    pending_requests.append(cr)
+        
+        return {
+            "success": True,
+            "count": len(pending_requests),
+            "pending_requests": pending_requests
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"❌ Error fetching pending change requests: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching pending change requests: {str(e)}")
+
+# ==================== END CONFIGURATION NOTES ENDPOINTS ====================
+
+# Get all clients (admin only)
+@api_router.get("/admin/clients")
+async def get_all_clients(_: bool = Depends(verify_admin_token)):
+    """Admin endpoint to view all clients"""
+    try:
+        clients = await maintenance_controls.find().to_list(1000)
+        for client in clients:
+            client.pop("_id", None)
+        
+        return {
+            "success": True,
+            "count": len(clients),
+            "clients": clients
+        }
+    except Exception as e:
+        logging.error(f"Error fetching clients: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Update client status (admin only)
+@api_router.put("/admin/clients/{client_id}")
+async def update_client_status(client_id: str, client: ClientStatus, _: bool = Depends(verify_admin_token)):
+    """Admin endpoint to update a specific client's status"""
+    try:
+        client_data = client.dict()
+        client_data["updated_at"] = get_ist_now()
+        
+        result = await maintenance_controls.update_one(
+            {"client_id": client_id},
+            {"$set": client_data},
+            upsert=True
+        )
+        
+        return {
+            "success": True,
+            "message": f"Client {client_id} updated successfully"
+        }
+    except Exception as e:
+        logging.error(f"Error updating client {client_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Delete client (admin only)
+@api_router.delete("/admin/clients/{client_id}")
+async def delete_client(client_id: str, _: bool = Depends(verify_admin_token)):
+    """Admin endpoint to delete a client"""
+    try:
+        result = await maintenance_controls.delete_one({"client_id": client_id})
+        
+        return {
+            "success": True,
+            "message": f"Client {client_id} deleted successfully",
+            "deleted_count": result.deleted_count
+        }
+    except Exception as e:
+        logging.error(f"Error deleting client {client_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== VISITOR TRACKING ENDPOINTS ====================
+
+class VisitorData(BaseModel):
+    """Model for tracking visitor data"""
+    device_id: str
+    device_type: str  # Mobile, Tablet, Desktop
+    phone_model: Optional[str] = None
+    os: str  # Android, iOS, Windows, macOS, Linux
+    browser: str
+    browser_version: str
+    ip_address: str
+    country: Optional[str] = None
+    city: Optional[str] = None
+    page_url: str
+    page_title: str
+    referrer: Optional[str] = None
+    session_id: str
+    user_agent: str
+    timestamp: str = Field(default_factory=get_ist_now)
+    session_duration: int = 0  # in seconds
+    actions_count: int = 0
+
+@api_router.post("/track/visitor")
+async def track_visitor(visitor_data: VisitorData):
+    """Track visitor data on page visit"""
+    try:
+        # Check if visitor device already exists
+        existing_visitor = await visitors_collection.find_one({"device_id": visitor_data.device_id})
+        
+        visitor_doc = visitor_data.dict()
+        visitor_doc["created_at"] = get_ist_now()
+        visitor_doc["last_seen"] = get_ist_now()
+        visitor_doc["visit_count"] = 1 if not existing_visitor else (existing_visitor.get("visit_count", 0) + 1)
+        visitor_doc["pages_visited"] = [visitor_data.page_url]
+        visitor_doc["is_new"] = not existing_visitor
+        
+        if existing_visitor:
+            # Update existing visitor
+            pages = existing_visitor.get("pages_visited", [])
+            if visitor_data.page_url not in pages:
+                pages.append(visitor_data.page_url)
+            
+            await visitors_collection.update_one(
+                {"device_id": visitor_data.device_id},
+                {
+                    "$set": {
+                        "last_seen": get_ist_now(),
+                        "visit_count": visitor_doc["visit_count"],
+                        "pages_visited": pages,
+                        "page_url": visitor_data.page_url,
+                        "page_title": visitor_data.page_title
+                    },
+                    "$inc": {"actions_count": 1}
+                }
+            )
+        else:
+            # Insert new visitor
+            await visitors_collection.insert_one(visitor_doc)
+        
+        return {
+            "success": True,
+            "message": "Visitor tracked successfully",
+            "visitor_id": visitor_data.device_id
+        }
+    except Exception as e:
+        logging.error(f"Error tracking visitor: {e}")
+        # Don't fail the page load - tracking is non-critical
+        return {"success": False, "message": str(e)}
+
+@api_router.get("/admin/visitors/dashboard")
+async def get_visitors_dashboard(_: bool = Depends(verify_admin_token)):
+    """Get visitor dashboard statistics"""
+    try:
+        total_visitors = await visitors_collection.count_documents({})
+        
+        # Get new visitors (last 24 hours)
+        from datetime import timedelta
+        yesterday = datetime.now(IST) - timedelta(days=1)
+        new_visitors = await visitors_collection.count_documents({
+            "created_at": {"$gte": yesterday.isoformat()}
+        })
+        
+        # Get returning visitors
+        returning_visitors = await visitors_collection.count_documents({
+            "visit_count": {"$gt": 1}
+        })
+        
+        # Get device distribution
+        device_dist = await visitors_collection.aggregate([
+            {"$group": {"_id": "$device_type", "count": {"$sum": 1}}}
+        ]).to_list(10)
+        
+        # Get top countries
+        top_countries = await visitors_collection.aggregate([
+            {"$group": {"_id": "$country", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]).to_list(10)
+        
+        # Get top pages
+        top_pages = await visitors_collection.aggregate([
+            {"$group": {"_id": "$page_title", "count": {"$sum": 1}, "url": {"$first": "$page_url"}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]).to_list(10)
+        
+        # Calculate unique visitors today
+        today = datetime.now(IST).replace(hour=0, minute=0, second=0, microsecond=0)
+        today_visitors = await visitors_collection.count_documents({
+            "last_seen": {"$gte": today.isoformat()}
+        })
+        
+        # Get bounce rate (single page visits)
+        single_page_visitors = await visitors_collection.count_documents({
+            "pages_visited": {"$size": 1}
+        })
+        bounce_rate = (single_page_visitors / max(1, total_visitors)) * 100 if total_visitors > 0 else 0
+        
+        return {
+            "total_visitors": total_visitors,
+            "new_visitors_24h": new_visitors,
+            "returning_visitors": returning_visitors,
+            "today_visitors": today_visitors,
+            "bounce_rate": round(bounce_rate, 2),
+            "device_distribution": [{"name": d["_id"], "count": d["count"]} for d in device_dist],
+            "top_countries": [{"name": c["_id"] or "Unknown", "count": c["count"]} for c in top_countries],
+            "top_pages": [{"title": p["_id"], "url": p["url"], "count": p["count"]} for p in top_pages]
+        }
+    except Exception as e:
+        logging.error(f"Error getting visitor dashboard: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/visitors/list")
+async def get_visitors_list(
+    limit: int = Query(50, le=100),
+    skip: int = Query(0),
+    _: bool = Depends(verify_admin_token)
+):
+    """Get list of all visitors"""
+    try:
+        visitors = await visitors_collection.find().sort("last_seen", -1).skip(skip).limit(limit).to_list(limit)
+        
+        for visitor in visitors:
+            visitor.pop("_id", None)
+        
+        total = await visitors_collection.count_documents({})
+        
+        return {
+            "success": True,
+            "total": total,
+            "count": len(visitors),
+            "visitors": visitors
+        }
+    except Exception as e:
+        logging.error(f"Error getting visitors list: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/visitors/real-time")
+async def get_realtime_visitors(_: bool = Depends(verify_admin_token)):
+    """Get real-time visitor monitoring data"""
+    try:
+        from datetime import timedelta
+        
+        # Visitors in last 5 minutes
+        five_min_ago = datetime.now(IST) - timedelta(minutes=5)
+        active_visitors = await visitors_collection.find({
+            "last_seen": {"$gte": five_min_ago.isoformat()}
+        }).sort("last_seen", -1).limit(20).to_list(20)
+        
+        for visitor in active_visitors:
+            visitor.pop("_id", None)
+        
+        # Get current page views
+        current_page_views = await visitors_collection.aggregate([
+            {"$group": {"_id": "$page_title", "count": {"$sum": 1}, "url": {"$first": "$page_url"}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ]).to_list(5)
+        
+        # Count visitors in different time windows
+        hour_ago = datetime.now(IST) - timedelta(hours=1)
+        day_ago = datetime.now(IST) - timedelta(days=1)
+        
+        visitors_last_hour = await visitors_collection.count_documents({
+            "last_seen": {"$gte": hour_ago.isoformat()}
+        })
+        
+        visitors_last_day = await visitors_collection.count_documents({
+            "last_seen": {"$gte": day_ago.isoformat()}
+        })
+        
+        return {
+            "active_now": len(active_visitors),
+            "last_hour": visitors_last_hour,
+            "last_day": visitors_last_day,
+            "recent_visitors": active_visitors,
+            "current_page_views": [{
+                "page": p["_id"],
+                "url": p["url"],
+                "viewers": p["count"]
+            } for p in current_page_views]
+        }
+    except Exception as e:
+        logging.error(f"Error getting realtime visitors: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/visitors/analytics")
+async def get_visitor_analytics(
+    days: int = Query(7, le=90),
+    _: bool = Depends(verify_admin_token)
+):
+    """Get visitor analytics for specified period"""
+    try:
+        from datetime import timedelta
+        
+        cutoff_date = datetime.now(IST) - timedelta(days=days)
+        
+        # Daily visitor counts
+        daily_stats = await visitors_collection.aggregate([
+            {
+                "$match": {
+                    "created_at": {"$gte": cutoff_date.isoformat()}
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d",
+                            "date": {
+                                "$dateFromString": {
+                                    "dateString": "$created_at"
+                                }
+                            }
+                        }
+                    },
+                    "count": {"$sum": 1},
+                    "returning": {
+                        "$sum": {
+                            "$cond": [{"$gt": ["$visit_count", 1]}, 1, 0]
+                        }
+                    }
+                }
+            },
+            {"$sort": {"_id": 1}}
+        ]).to_list(None)
+        
+        # Browser distribution
+        browser_dist = await visitors_collection.aggregate([
+            {"$group": {"_id": "$browser", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]).to_list(10)
+        
+        # OS distribution
+        os_dist = await visitors_collection.aggregate([
+            {"$group": {"_id": "$os", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]).to_list(10)
+        
+        return {
+            "period_days": days,
+            "daily_stats": daily_stats,
+            "browser_distribution": [{"name": b["_id"], "count": b["count"]} for b in browser_dist],
+            "os_distribution": [{"name": o["_id"], "count": o["count"]} for o in os_dist]
+        }
+    except Exception as e:
+        logging.error(f"Error getting visitor analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/visitors/behavior")
+async def get_visitor_behavior(_: bool = Depends(verify_admin_token)):
+    """Get visitor behavior analytics"""
+    try:
+        # Most visited pages
+        top_visited_pages = await visitors_collection.aggregate([
+            {"$unwind": "$pages_visited"},
+            {"$group": {"_id": "$pages_visited", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 15}
+        ]).to_list(15)
+        
+        # Average pages per session
+        session_stats = await visitors_collection.aggregate([
+            {
+                "$group": {
+                    "_id": None,
+                    "avg_pages": {
+                        "$avg": {
+                            "$size": "$pages_visited"
+                        }
+                    },
+                    "avg_actions": {"$avg": "$actions_count"},
+                    "avg_session_duration": {"$avg": "$session_duration"}
+                }
+            }
+        ]).to_list(1)
+        
+        # Top referrers
+        top_referrers = await visitors_collection.aggregate([
+            {"$match": {"referrer": {"$ne": None, "$ne": ""}}},
+            {"$group": {"_id": "$referrer", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]).to_list(10)
+        
+        avg_session = session_stats[0] if session_stats else {
+            "avg_pages": 0,
+            "avg_actions": 0,
+            "avg_session_duration": 0
+        }
+        
+        return {
+            "top_visited_pages": [{"url": p["_id"], "views": p["count"]} for p in top_visited_pages],
+            "avg_pages_per_session": round(avg_session.get("avg_pages", 0), 2),
+            "avg_actions_per_session": round(avg_session.get("avg_actions", 0), 2),
+            "avg_session_duration": round(avg_session.get("avg_session_duration", 0), 2),
+            "top_referrers": [{"referrer": ref["_id"], "count": ref["count"]} for ref in top_referrers]
+        }
+    except Exception as e:
+        logging.error(f"Error getting visitor behavior: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/visitors/engagement")
+async def get_engagement_metrics(_: bool = Depends(verify_admin_token)):
+    """Get visitor engagement metrics"""
+    try:
+        # Visitor segments
+        high_engagement = await visitors_collection.count_documents({
+            "actions_count": {"$gte": 10}
+        })
+        
+        medium_engagement = await visitors_collection.count_documents({
+            "actions_count": {"$gte": 5, "$lt": 10}
+        })
+        
+        low_engagement = await visitors_collection.count_documents({
+            "actions_count": {"$lt": 5}
+        })
+        
+        # Calculate engagement scores
+        total_visitors = await visitors_collection.count_documents({})
+        
+        return {
+            "high_engagement": {
+                "count": high_engagement,
+                "percentage": round((high_engagement / max(1, total_visitors)) * 100, 2)
+            },
+            "medium_engagement": {
+                "count": medium_engagement,
+                "percentage": round((medium_engagement / max(1, total_visitors)) * 100, 2)
+            },
+            "low_engagement": {
+                "count": low_engagement,
+                "percentage": round((low_engagement / max(1, total_visitors)) * 100, 2)
+            },
+            "total_interactions": await visitors_collection.aggregate([
+                {"$group": {"_id": None, "total": {"$sum": "$actions_count"}}}
+            ]).to_list(1)
+        }
+    except Exception as e:
+        logging.error(f"Error getting engagement metrics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/visitors/performance")
+async def get_performance_insights(_: bool = Depends(verify_admin_token)):
+    """Get visitor performance insights"""
+    try:
+        from datetime import timedelta
+        
+        # Performance by device type
+        device_perf = await visitors_collection.aggregate([
+            {
+                "$group": {
+                    "_id": "$device_type",
+                    "avg_session_duration": {"$avg": "$session_duration"},
+                    "avg_actions": {"$avg": "$actions_count"},
+                    "bounce_rate": {
+                        "$avg": {
+                            "$cond": [
+                                {"$eq": [{"$size": "$pages_visited"}, 1]},
+                                1,
+                                0
+                            ]
+                        }
+                    },
+                    "count": {"$sum": 1}
+                }
+            },
+            {"$sort": {"count": -1}}
+        ]).to_list(10)
+        
+        # Peak hours
+        peak_hours = await visitors_collection.aggregate([
+            {
+                "$group": {
+                    "_id": {
+                        "$hour": {
+                            "$dateFromString": {
+                                "dateString": "$last_seen"
+                            }
+                        }
+                    },
+                    "count": {"$sum": 1}
+                }
+            },
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ]).to_list(5)
+        
+        # Visitor retention (return rate)
+        week_ago = datetime.now(IST) - timedelta(days=7)
+        visitors_week_ago = await visitors_collection.find({
+            "created_at": {
+                "$gte": week_ago.isoformat(),
+                "$lt": datetime.now(IST).isoformat()
+            }
+        }).to_list(None)
+        
+        returning_count = sum(1 for v in visitors_week_ago if v.get("visit_count", 1) > 1)
+        retention_rate = (returning_count / max(1, len(visitors_week_ago))) * 100 if visitors_week_ago else 0
+        
+        return {
+            "device_performance": [{
+                "device_type": d["_id"],
+                "avg_session_duration_seconds": round(d["avg_session_duration"], 2),
+                "avg_actions": round(d["avg_actions"], 2),
+                "bounce_rate_percent": round(d["bounce_rate"] * 100, 2),
+                "visitor_count": d["count"]
+            } for d in device_perf],
+            "peak_hours": [{"hour": p["_id"], "visitors": p["count"]} for p in peak_hours],
+            "weekly_retention_rate": round(retention_rate, 2),
+            "total_actions": await visitors_collection.aggregate([
+                {"$group": {"_id": None, "total": {"$sum": "$actions_count"}}}
+            ]).to_list(1)
+        }
+    except Exception as e:
+        logging.error(f"Error getting performance insights: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== END VISITOR TRACKING ENDPOINTS ====================
+
+app.include_router(api_router)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+@app.on_event("startup")
+async def startup_event():
+    try:
+        await init_mongodb()
+        logging.info("Startup event completed successfully")
+    except Exception as e:
+        logging.error(f"Startup event failed: {e}", exc_info=True)
+        # Don't re-raise - let the server continue even if startup fails
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

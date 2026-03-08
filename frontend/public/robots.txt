@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Allow: /sitemap.xml
+Disallow: /admin
+Disallow: /api/
+Disallow: /.git
+Disallow: /node_modules
+
+# Sitemap
+Sitemap: https://zoomuseumsb.vercel.app/sitemap.xml
+
+# Google-specific rules
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
