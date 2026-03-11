@@ -236,7 +236,7 @@ const MaintenancePopup = ({ backendUrl = null }) => {
             {/* Footer Text */}
             <div className="popup-info-text-premium">
               <i className="fas fa-shield-alt"></i>
-              <p>Contact Admin to Renew the Backend Services</p>
+              <p>Contact Admin to Renew the Backend, Database & Frontend Services</p>
             </div>
           </div>
         </div>
