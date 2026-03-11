@@ -110,8 +110,8 @@ const MaintenancePopup = ({ backendUrl = null }) => {
   };
 
   const getTitle = () => {
-    if (isUnpaid) return 'Payment Required';
-    if (isDue) return 'Payment Due';
+    if (isUnpaid) return 'Attention Required';
+    if (isDue) return 'Attention Required';
     return 'Important Notice';
   };
 
@@ -216,7 +216,7 @@ const MaintenancePopup = ({ backendUrl = null }) => {
                 }}
               >
                 <i className="fab fa-whatsapp"></i>
-                <span>Pay Now</span>
+                <span>Contact Administrator</span>
               </button>
 
               {closable && (
