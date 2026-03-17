@@ -4890,6 +4890,7 @@ const OrganismsPage = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [contactInfo, setContactInfo] = useState({
     contact_email: 'sarthaknk07@outlook.com',
     support_email: 'sarthaknk08@gmail.com',
@@ -4905,6 +4906,25 @@ const OrganismsPage = () => {
     fetchOrganisms();
     fetchContactInfo();
   }, []);
+
+  // Handle click outside filter dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      const filterButton = document.getElementById('filter-organisms-btn');
+      const filterMenu = document.getElementById('filter-dropdown-menu');
+      
+      if (filterMenu && filterButton && 
+          !filterMenu.contains(e.target) && 
+          !filterButton.contains(e.target)) {
+        setShowFilterDropdown(false);
+      }
+    };
+
+    if (showFilterDropdown) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showFilterDropdown]);
 
   const fetchContactInfo = async () => {
     try {
@@ -5098,10 +5118,24 @@ const OrganismsPage = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full py-6 sm:py-8 px-3 sm:px-4">
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 sm:mb-8 text-center text-gray-800">
-          <i className="fas fa-binoculars mr-2 text-green-600"></i>Explore Organisms
-        </h2>
+      <main className="flex-1 max-w-7xl mx-auto w-full py-6 sm:py-8 md:py-10 px-3 sm:px-4 md:px-6">
+        <div className="mb-8 sm:mb-10 md:mb-12 text-center">
+          <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold mb-2 sm:mb-3 text-transparent bg-clip-text ${
+            isDark 
+              ? 'bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400'
+              : 'bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600'
+          }`}>
+            <i className="fas fa-binoculars mr-2 sm:mr-3"></i>Explore Organisms
+          </h2>
+          <div className={`h-1 w-16 mx-auto rounded-full ${
+            isDark 
+              ? 'bg-gradient-to-r from-green-500 to-teal-500'
+              : 'bg-gradient-to-r from-green-600 to-teal-600'
+          }`}></div>
+          <p className={`mt-3 sm:mt-4 text-sm sm:text-base ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            Discover the amazing diversity of life on Earth
+          </p>
+        </div>
 
         {/* Premium Search Bar */}
       <div className="mb-6 sm:mb-8 relative px-0 sm:px-0">
@@ -5173,44 +5207,131 @@ const OrganismsPage = () => {
           </div>
         </div>
 
-        {/* Filter Section */}
-        <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-xl shadow-md border-l-4 border-green-600 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
-            {/* Kingdom Filter */}
-            <div>
-              <label className={`block font-semibold mb-2 text-sm sm:text-base ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                <i className="fas fa-filter mr-2 text-green-600"></i>Filter by Kingdom
-              </label>
-              <select
-                value={selectedKingdom}
-                onChange={handleKingdomChange}
-                className={`w-full px-3 sm:px-4 py-1.5 rounded-lg focus:outline-none transition-all text-sm sm:text-base border-2 ${isDark ? 'bg-gray-700 border-gray-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-900' : 'border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200'}`}
-              >
-                <option value="">All Kingdoms</option>
-                {getUniqueKingdoms().map(kingdom => (
-                  <option key={kingdom} value={kingdom}>{kingdom}</option>
-                ))}
-              </select>
+        {/* Filter Button - Compact Dropdown */}
+        <div className="mb-6 sm:mb-8 md:mb-10 relative">
+          <div className="flex items-center gap-2 sm:gap-3 justify-between">
+            <div className="flex-1">
+              <h3 className={`text-sm sm:text-base font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Results: <span className={`${isDark ? 'text-green-400' : 'text-green-600'} font-bold`}>{organisms.length}</span>
+              </h3>
             </div>
-
-            {/* Phylum Filter */}
-            <div>
-              <label className={`block font-semibold mb-2 text-sm sm:text-base ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                <i className="fas fa-filter mr-2 text-green-600"></i>Filter by Phylum
-              </label>
-              <select
-                value={selectedPhylum}
-                onChange={handlePhylumChange}
-                className={`w-full px-3 sm:px-4 py-1.5 rounded-lg focus:outline-none transition-all text-sm sm:text-base border-2 ${isDark ? 'bg-gray-700 border-gray-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-900' : 'border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200'}`}
-              >
-                <option value="">All Phyla</option>
-                {getUniquePhyla().map(phylum => (
-                  <option key={phylum} value={phylum}>{phylum}</option>
-                ))}
-              </select>
-            </div>
+            <button
+              id="filter-organisms-btn"
+              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+              className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg flex items-center gap-2 transition-all duration-300 ${
+                showFilterDropdown
+                  ? isDark
+                    ? 'bg-green-600 text-white shadow-lg'
+                    : 'bg-green-500 text-white shadow-lg'
+                  : isDark
+                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+              }`}
+              title="Toggle filters"
+            >
+              <i className={`fas fa-sliders text-base sm:text-lg transition-transform ${showFilterDropdown ? 'rotate-90' : ''}`}></i>
+              <span className="hidden sm:inline text-xs sm:text-sm font-semibold">Filters</span>
+            </button>
           </div>
-          <p className={`text-xs sm:text-sm mt-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Showing {organisms.length} organism{organisms.length !== 1 ? 's' : ''}</p>
+
+          {/* Filter Dropdown Menu */}
+          {showFilterDropdown && (
+            <div
+              id="filter-dropdown-menu"
+              className={`absolute top-full right-0 mt-3 rounded-xl shadow-2xl border-2 z-50 p-4 sm:p-5 min-w-72 max-w-md animation-fadeInScale ${
+                isDark
+                  ? 'bg-gray-800 border-green-700'
+                  : 'bg-white border-green-200'
+              }`}
+            >
+              <h4 className={`text-sm sm:text-base font-bold mb-4 flex items-center gap-2 ${
+                isDark ? 'text-green-400' : 'text-green-600'
+              }`}>
+                <i className="fas fa-sliders"></i>
+                Filter Organisms
+              </h4>
+
+              {/* Kingdom Filter */}
+              <div className="mb-4 space-y-2">
+                <label className={`block text-xs sm:text-sm font-semibold ${
+                  isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Kingdom
+                </label>
+                <select
+                  value={selectedKingdom}
+                  onChange={handleKingdomChange}
+                  className={`w-full px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm focus:outline-none transition-all duration-200 border-2 appearance-none cursor-pointer ${
+                    isDark
+                      ? 'bg-gray-700 border-gray-600 text-white hover:border-green-500 focus:border-green-500 focus:ring-2 focus:ring-green-900'
+                      : 'bg-gray-50 border-gray-300 text-gray-800 hover:border-green-400 focus:border-green-500 focus:ring-2 focus:ring-green-200'
+                  }`}
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${isDark ? 'white' : 'black'}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 0.5rem center',
+                    backgroundSize: '1.25rem',
+                    paddingRight: '2.5rem'
+                  }}
+                >
+                  <option value="">All Kingdoms</option>
+                  {getUniqueKingdoms().map(kingdom => (
+                    <option key={kingdom} value={kingdom}>{kingdom}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Phylum Filter */}
+              <div className="space-y-2">
+                <label className={`block text-xs sm:text-sm font-semibold ${
+                  isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Phylum
+                </label>
+                <select
+                  value={selectedPhylum}
+                  onChange={handlePhylumChange}
+                  className={`w-full px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm focus:outline-none transition-all duration-200 border-2 appearance-none cursor-pointer ${
+                    isDark
+                      ? 'bg-gray-700 border-gray-600 text-white hover:border-green-500 focus:border-green-500 focus:ring-2 focus:ring-green-900'
+                      : 'bg-gray-50 border-gray-300 text-gray-800 hover:border-green-400 focus:border-green-500 focus:ring-2 focus:ring-green-200'
+                  }`}
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${isDark ? 'white' : 'black'}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 0.5rem center',
+                    backgroundSize: '1.25rem',
+                    paddingRight: '2.5rem'
+                  }}
+                >
+                  <option value="">All Phyla</option>
+                  {getUniquePhyla().map(phylum => (
+                    <option key={phylum} value={phylum}>{phylum}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quick actions */}
+              <div className="mt-4 pt-3 border-t border-gray-600 flex gap-2">
+                {(selectedKingdom || selectedPhylum) && (
+                  <button
+                    onClick={() => {
+                      setSelectedKingdom('');
+                      setSelectedPhylum('');
+                      filterOrganisms('', '', searchTerm);
+                    }}
+                    className={`flex-1 px-3 py-1.5 rounded text-xs font-semibold transition-all ${
+                      isDark
+                        ? 'bg-gray-700 hover:bg-red-600 text-gray-300 hover:text-white'
+                        : 'bg-gray-200 hover:bg-red-500 text-gray-800 hover:text-white'
+                    }`}
+                  >
+                    <i className="fas fa-times mr-1"></i>Clear Filters
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Organisms Grid */}
