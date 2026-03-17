@@ -5,6 +5,8 @@ import axios from "axios";
 import { QrReader } from 'react-qr-reader';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { QRCodeSVG } from 'qrcode.react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import BiotubeHomepage from './components/BiotubeHomepage';
 import BiotubeVideoPage from './components/BiotubeVideoPage';
 import BiotubeAdminPanel from './components/BiotubeAdminPanel';
@@ -900,6 +902,85 @@ const OrganismDetail = () => {
     }
   }, [showAccessibilityMenu]);
 
+  // Export and Sharing Functions
+  const downloadPDF = async () => {
+    try {
+      const element = document.getElementById('organism-detail-content');
+      if (!element) {
+        showToast('Error: Content not found', 'error', 2000);
+        return;
+      }
+
+      showToast('📄 Generating PDF...', 'info', 1000);
+      const canvas = await html2canvas(element, { 
+        scale: 2, 
+        backgroundColor: '#ffffff',
+        useCORS: true 
+      });
+      
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const imgWidth = pageWidth - (margin * 2);
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', margin, position + margin, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', margin, position + margin, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const fileName = `${displayOrganism.name || 'organism'}.pdf`;
+      pdf.save(fileName);
+      showToast('✅ PDF downloaded successfully!', 'success', 2000);
+    } catch (error) {
+      console.error('PDF export error:', error);
+      showToast('❌ Error generating PDF', 'error', 2000);
+    }
+  };
+
+  const shareToWhatsApp = () => {
+    const text = `Check out this amazing organism: *${displayOrganism.name}* (${displayOrganism.scientific_name})\n\n${displayOrganism.description?.substring(0, 100)}...\n\nVisit Bio Museum to learn more!`;
+    const encodedText = encodeURIComponent(text);
+    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+    showToast('💬 Sharing on WhatsApp...', 'success', 1000);
+  };
+
+  const shareToFacebook = () => {
+    const url = window.location.href;
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank', 'width=600,height=400');
+    showToast('👍 Sharing on Facebook...', 'success', 1000);
+  };
+
+  const shareToTwitter = () => {
+    const text = `Discover ${displayOrganism.name} (${displayOrganism.scientific_name}) on Bio Museum! Learn amazing facts about this creature. 🦁🐦🦄`;
+    const url = window.location.href;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'width=600,height=400');
+    showToast('🐦 Sharing on Twitter...', 'success', 1000);
+  };
+
+  const shareViaEmail = () => {
+    const subject = `Check out: ${displayOrganism.name} - Bio Museum`;
+    const body = `Hi,\n\nI found this fascinating organism on Bio Museum:\n\n${displayOrganism.name} (${displayOrganism.scientific_name})\n\n${displayOrganism.description?.substring(0, 150)}...\n\nVisit Bio Museum to learn more:\n${window.location.href}\n\nBest regards`;
+    
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+    showToast('📧 Opening email client...', 'success', 1000);
+  };
+
   const getFontSizeClass = () => {
     switch(fontSize) {
       case 'large': return 'text-lg sm:text-xl';
@@ -1045,20 +1126,20 @@ const OrganismDetail = () => {
 
         <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-xl shadow-lg overflow-hidden border`}>
           {/* Header with Translate Button (LEFT) and Accessibility Button (RIGHT) */}
-          <div className={`${isDark ? 'bg-gradient-to-br from-green-800 to-green-900' : 'bg-gradient-to-br from-green-600 to-blue-600'} text-white p-4 sm:p-6 ${getContrastClasses().header}`}>
-            <div className="flex justify-between items-start gap-4">
+          <div className={`${isDark ? 'bg-gradient-to-br from-green-800 to-green-900' : 'bg-gradient-to-br from-green-600 to-blue-600'} text-white p-3 sm:p-5 md:p-6 ${getContrastClasses().header}`}>
+            <div className="flex justify-between items-center gap-2 sm:gap-3 md:gap-4">
               {/* LEFT: Translate Button */}
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <button
                   onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
                   disabled={translating}
-                  className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
+                  className={`px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-2.5 rounded-lg font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
                     translating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white hover:bg-opacity-10'
-                  } bg-white bg-opacity-20 backdrop-blur-sm`}
+                  } bg-white bg-opacity-20 backdrop-blur-sm hover:backdrop-blur-md`}
                   title="Click to translate content"
                 >
-                  <i className={`fa-solid ${translating ? 'fa-spinner animate-spin' : 'fa-language'}`}></i>
-                  <span>Translate</span>
+                  <i className={`fa-solid ${translating ? 'fa-spinner animate-spin' : 'fa-language'} text-base sm:text-lg`}></i>
+                  <span className="hidden sm:inline">Translate</span>
                 </button>
 
                 {/* Language Dropdown */}
@@ -1067,7 +1148,7 @@ const OrganismDetail = () => {
                     className={`absolute top-full left-0 mt-2 rounded-lg shadow-2xl border z-50 ${
                       isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300'
                     }`}
-                    style={{ minWidth: '200px' }}
+                    style={{ minWidth: '180px', maxWidth: '90vw' }}
                   >
                     <div className={`py-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                       {Object.entries(supportedLanguages).map(([code, lang]) => (
@@ -1100,27 +1181,28 @@ const OrganismDetail = () => {
               </div>
 
               {/* CENTER: Organism Info */}
-              <div className="flex-1 text-center">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">{capitalizeOrganismName(displayOrganism.name)}</h1>
-                <p className="text-lg sm:text-xl italic opacity-90">{displayOrganism.scientific_name}</p>
+              <div className="flex-1 text-center min-w-0 px-1">
+                <h1 className="text-xl sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2 leading-tight break-words">{capitalizeOrganismName(displayOrganism.name)}</h1>
+                <p className="text-sm sm:text-base md:text-xl italic opacity-90 break-words">{displayOrganism.scientific_name}</p>
                 {selectedLanguage !== 'en' && (
-                  <p className="text-xs sm:text-sm mt-2 opacity-75">
+                  <p className="text-xs sm:text-sm mt-1 sm:mt-2 opacity-75">
                     <i className="fa-solid fa-globe mr-1"></i>
-                    Displayed in {supportedLanguages[selectedLanguage]?.label}
+                    <span className="hidden sm:inline">Displayed in {supportedLanguages[selectedLanguage]?.label}</span>
+                    <span className="sm:hidden">{supportedLanguages[selectedLanguage]?.label}</span>
                   </p>
                 )}
               </div>
 
               {/* RIGHT: Accessibility Button */}
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <button
                   id="accessibility-btn"
                   onClick={() => setShowAccessibilityMenu(!showAccessibilityMenu)}
-                  className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center gap-2 whitespace-nowrap hover:bg-white hover:bg-opacity-10 bg-white bg-opacity-20 backdrop-blur-sm`}
+                  className={`px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-2.5 rounded-lg font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center gap-2 whitespace-nowrap hover:bg-white hover:bg-opacity-10 bg-white bg-opacity-20 backdrop-blur-sm hover:backdrop-blur-md`}
                   title="Click for accessibility options"
                 >
-                  <i className="fa-solid fa-universal-access"></i>
-                  <span className="hidden sm:inline">Accessibility</span>
+                  <i className="fa-solid fa-universal-access text-base sm:text-lg"></i>
+                  <span className="hidden sm:inline">Access</span>
                 </button>
 
                 {/* Accessibility Menu Dropdown */}
@@ -1130,7 +1212,7 @@ const OrganismDetail = () => {
                     className={`absolute top-full right-0 mt-2 rounded-lg shadow-2xl border z-50 ${
                       isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300'
                     }`}
-                    style={{ minWidth: '280px' }}
+                    style={{ minWidth: 'min(280px, 90vw)', maxHeight: '80vh', overflowY: 'auto' }}
                   >
                     <div className="flex justify-between items-center px-4 pt-3 pb-1">
                       <h4 className={`font-bold text-sm ${isDark ? 'text-white' : 'text-gray-800'}`}>Accessibility Options</h4>
@@ -1248,7 +1330,53 @@ const OrganismDetail = () => {
             </div>
           </div>
 
+          {/* Export & Sharing Section */}
+          <div className={`export-sharing-section mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-5 ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
+            <div className="flex flex-wrap gap-2 sm:gap-3 md:gap-4 justify-center sm:justify-start">
+              <button
+                onClick={downloadPDF}
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full transition-all flex items-center justify-center ${isDark ? 'bg-black hover:bg-gray-900' : 'bg-white hover:bg-gray-50'} border-2 ${isDark ? 'border-white hover:border-gray-300' : 'border-black hover:border-gray-600'} shadow-md hover:shadow-lg`}
+                title="Download as PDF"
+              >
+                <i className={`fa-solid fa-file-pdf text-xl sm:text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
+              </button>
+
+              <button
+                onClick={shareToWhatsApp}
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full transition-all flex items-center justify-center ${isDark ? 'bg-black hover:bg-gray-900' : 'bg-white hover:bg-gray-50'} border-2 ${isDark ? 'border-white hover:border-gray-300' : 'border-black hover:border-gray-600'} shadow-md hover:shadow-lg`}
+                title="Share on WhatsApp"
+              >
+                <i className={`fa-brands fa-whatsapp text-xl sm:text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
+              </button>
+
+              <button
+                onClick={shareToFacebook}
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full transition-all flex items-center justify-center ${isDark ? 'bg-black hover:bg-gray-900' : 'bg-white hover:bg-gray-50'} border-2 ${isDark ? 'border-white hover:border-gray-300' : 'border-black hover:border-gray-600'} shadow-md hover:shadow-lg`}
+                title="Share on Facebook"
+              >
+                <i className={`fa-brands fa-facebook text-xl sm:text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
+              </button>
+
+              <button
+                onClick={shareToTwitter}
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full transition-all flex items-center justify-center ${isDark ? 'bg-black hover:bg-gray-900' : 'bg-white hover:bg-gray-50'} border-2 ${isDark ? 'border-white hover:border-gray-300' : 'border-black hover:border-gray-600'} shadow-md hover:shadow-lg`}
+                title="Share on Twitter"
+              >
+                <i className={`fa-brands fa-x-twitter text-xl sm:text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
+              </button>
+
+              <button
+                onClick={shareViaEmail}
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full transition-all flex items-center justify-center ${isDark ? 'bg-black hover:bg-gray-900' : 'bg-white hover:bg-gray-50'} border-2 ${isDark ? 'border-white hover:border-gray-300' : 'border-black hover:border-gray-600'} shadow-md hover:shadow-lg`}
+                title="Share via Email"
+              >
+                <i className={`fa-solid fa-envelope text-xl sm:text-2xl ${isDark ? 'text-white' : 'text-black'}`}></i>
+              </button>
+            </div>
+          </div>
+
           <div 
+            id="organism-detail-content"
             className="grid md:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6"
             style={{
               fontSize: fontSize === 'large' ? '1.125rem' : fontSize === 'xlarge' ? '1.25rem' : '1rem',
