@@ -25,6 +25,7 @@ import { AuthProvider } from './context/AuthContext';
 import { SiteProvider, SiteContext } from './contexts/SiteContext';
 import { formatDateIST } from './utils/dateFormatter';
 import { initializeVisitorTracking } from './services/visitorTracker';
+import useTranslation from './hooks/useTranslation';
 import "./App.css";
 
 // Determine backend URL based on current location
@@ -786,10 +787,20 @@ const QRScanner = () => {
 const OrganismDetail = () => {
   const { id } = useParams();
   const [organism, setOrganism] = useState(null);
+  const [translatedOrganism, setTranslatedOrganism] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [translating, setTranslating] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [showAccessibilityMenu, setShowAccessibilityMenu] = useState(false);
+  const [fontSize, setFontSize] = useState('normal'); // 'normal', 'large', 'xlarge'
+  const [highContrast, setHighContrast] = useState(false);
+  const [colorBlindMode, setColorBlindMode] = useState('normal'); // 'normal', 'protanopia', 'deuteranopia'
+  const [readAloudEnabled, setReadAloudEnabled] = useState(false);
   const navigate = useNavigate();
   const { isDark, toggleTheme } = React.useContext(ThemeContext);
   const { siteSettings } = React.useContext(SiteContext);
+  const { translateOrganismData, supportedLanguages } = useTranslation();
 
   useEffect(() => {
     fetchOrganism();
@@ -799,11 +810,127 @@ const OrganismDetail = () => {
     try {
       const response = await axios.get(`${API}/organisms/${id}`);
       setOrganism(response.data);
+      setTranslatedOrganism(response.data);
     } catch (error) {
       console.error('Error fetching organism:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLanguageChange = async (lang) => {
+    setSelectedLanguage(lang);
+    setShowLanguageDropdown(false);
+    
+    if (lang === 'en') {
+      setTranslatedOrganism(organism);
+      return;
+    }
+
+    setTranslating(true);
+    try {
+      const translated = await translateOrganismData(organism, lang);
+      setTranslatedOrganism(translated);
+    } catch (error) {
+      console.error('Translation error:', error);
+      showToast('Translation failed. Showing original content.', 'error', 3000);
+      setTranslatedOrganism(organism);
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  const speakText = (text, lang = 'en') => {
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang === 'hi' ? 'hi-IN' : lang === 'mr' ? 'mr-IN' : 'en-IN';
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    
+    // Try to select Indian English voice
+    const voices = window.speechSynthesis.getVoices();
+    const indianVoice = voices.find(voice => 
+      voice.lang.startsWith('en') && (voice.name.includes('Indian') || voice.name.includes('India') || voice.lang === 'en-IN')
+    ) || voices.find(voice => voice.lang.startsWith('en-IN'));
+    
+    if (indianVoice) {
+      utterance.voice = indianVoice;
+    }
+    
+    window.speechSynthesis.speak(utterance);
+    showToast('🔊 Reading aloud...', 'success', 2000);
+  };
+
+  const handleReadAloud = () => {
+    const displayOrganism = translatedOrganism || organism;
+    if (!displayOrganism) return;
+    
+    let textToRead = `${displayOrganism.name}. ${displayOrganism.scientific_name}. `;
+    if (displayOrganism.morphology) textToRead += displayOrganism.morphology + '. ';
+    if (displayOrganism.description) textToRead += displayOrganism.description;
+    
+    speakText(textToRead, selectedLanguage);
+  };
+
+  const stopReadAloud = () => {
+    window.speechSynthesis.cancel();
+    setReadAloudEnabled(false);
+    showToast('🔇 Speech stopped', 'success', 1000);
+  };
+
+  // Handle click outside accessibility menu to close it
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      const accessibilityDiv = document.getElementById('accessibility-menu');
+      const accessibilityBtn = document.getElementById('accessibility-btn');
+      
+      if (accessibilityDiv && accessibilityBtn && 
+          !accessibilityDiv.contains(e.target) && 
+          !accessibilityBtn.contains(e.target)) {
+        setShowAccessibilityMenu(false);
+      }
+    };
+
+    if (showAccessibilityMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showAccessibilityMenu]);
+
+  const getFontSizeClass = () => {
+    switch(fontSize) {
+      case 'large': return 'text-lg sm:text-xl';
+      case 'xlarge': return 'text-xl sm:text-2xl';
+      default: return 'text-base sm:text-lg';
+    }
+  };
+
+  const getContrastClasses = () => {
+    if (highContrast && isDark) {
+      return {
+        header: 'bg-black text-white border-4 border-white',
+        text: 'text-white bg-black',
+        bg: 'bg-black',
+        border: 'border-white'
+      };
+    }
+    if (highContrast) {
+      return {
+        header: 'bg-white text-black border-4 border-black',
+        text: 'text-black bg-white',
+        bg: 'bg-white',
+        border: 'border-black'
+      };
+    }
+    return {
+      header: '',
+      text: '',
+      bg: '',
+      border: ''
+    };
   };
 
   if (loading) {
@@ -833,8 +960,29 @@ const OrganismDetail = () => {
     );
   }
 
+  const displayOrganism = translatedOrganism || organism;
+
   return (
     <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gradient-to-br from-green-50 to-blue-50'}`}>
+      {/* SVG Color Blindness Filters */}
+      <svg style={{ display: 'none' }}>
+        <defs>
+          {/* Protanopia (Red-Blind) Filter */}
+          <filter id="protanopia-filter">
+            <feColorMatrix type="matrix" values="0.567 0.433 0.000 0.000 0.000
+                                                 0.558 0.442 0.000 0.000 0.000
+                                                 0.000 0.242 0.758 0.000 0.000
+                                                 0.000 0.000 0.000 1.000 0.000" />
+          </filter>
+          {/* Deuteranopia (Green-Blind) Filter */}
+          <filter id="deuteranopia-filter">
+            <feColorMatrix type="matrix" values="0.625 0.375 0.000 0.000 0.000
+                                                 0.700 0.300 0.000 0.000 0.000
+                                                 0.000 0.300 0.700 0.000 0.000
+                                                 0.000 0.000 0.000 1.000 0.000" />
+          </filter>
+        </defs>
+      </svg>
       {/* Navbar */}
       <header 
         className={`shadow-lg sticky top-0 z-50`}
@@ -888,22 +1036,238 @@ const OrganismDetail = () => {
           ← Back to Home
         </button>
 
+        {translating && (
+          <div className={`mb-4 p-3 rounded-lg text-center text-sm ${isDark ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-800'}`}>
+            <i className="fa-solid fa-spinner animate-spin mr-2"></i>
+            Translating to {supportedLanguages[selectedLanguage]?.label}...
+          </div>
+        )}
+
         <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-xl shadow-lg overflow-hidden border`}>
-          {/* Header */}
-          <div className={`${isDark ? 'bg-gradient-to-br from-green-800 to-green-900' : 'bg-gradient-to-br from-green-600 to-blue-600'} text-white p-4 sm:p-6`}>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">{capitalizeOrganismName(organism.name)}</h1>
-            <p className="text-lg sm:text-xl italic opacity-90">{organism.scientific_name}</p>
+          {/* Header with Translate Button (LEFT) and Accessibility Button (RIGHT) */}
+          <div className={`${isDark ? 'bg-gradient-to-br from-green-800 to-green-900' : 'bg-gradient-to-br from-green-600 to-blue-600'} text-white p-4 sm:p-6 ${getContrastClasses().header}`}>
+            <div className="flex justify-between items-start gap-4">
+              {/* LEFT: Translate Button */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                  disabled={translating}
+                  className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
+                    translating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white hover:bg-opacity-10'
+                  } bg-white bg-opacity-20 backdrop-blur-sm`}
+                  title="Click to translate content"
+                >
+                  <i className={`fa-solid ${translating ? 'fa-spinner animate-spin' : 'fa-language'}`}></i>
+                  <span>Translate</span>
+                </button>
+
+                {/* Language Dropdown */}
+                {showLanguageDropdown && !translating && (
+                  <div
+                    className={`absolute top-full left-0 mt-2 rounded-lg shadow-2xl border z-50 ${
+                      isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300'
+                    }`}
+                    style={{ minWidth: '200px' }}
+                  >
+                    <div className={`py-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                      {Object.entries(supportedLanguages).map(([code, lang]) => (
+                        <button
+                          key={code}
+                          onClick={() => handleLanguageChange(code)}
+                          className={`w-full px-4 py-2.5 text-left text-sm transition-all duration-200 flex items-center gap-3 ${
+                            selectedLanguage === code
+                              ? isDark
+                                ? 'bg-green-700 text-white'
+                                : 'bg-green-500 text-white'
+                              : isDark
+                              ? 'hover:bg-gray-700'
+                              : 'hover:bg-gray-100'
+                          }`}
+                        >
+                          <span className="text-lg">{lang.flag}</span>
+                          <div className="flex-1">
+                            <span className="font-medium">{lang.label}</span>
+                            <span className={`text-xs block ${selectedLanguage === code ? 'opacity-100' : 'opacity-70'}`}>{lang.nativeName}</span>
+                          </div>
+                          {selectedLanguage === code && (
+                            <i className="fa-solid fa-check text-lg"></i>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* CENTER: Organism Info */}
+              <div className="flex-1 text-center">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">{capitalizeOrganismName(displayOrganism.name)}</h1>
+                <p className="text-lg sm:text-xl italic opacity-90">{displayOrganism.scientific_name}</p>
+                {selectedLanguage !== 'en' && (
+                  <p className="text-xs sm:text-sm mt-2 opacity-75">
+                    <i className="fa-solid fa-globe mr-1"></i>
+                    Displayed in {supportedLanguages[selectedLanguage]?.label}
+                  </p>
+                )}
+              </div>
+
+              {/* RIGHT: Accessibility Button */}
+              <div className="relative">
+                <button
+                  id="accessibility-btn"
+                  onClick={() => setShowAccessibilityMenu(!showAccessibilityMenu)}
+                  className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center gap-2 whitespace-nowrap hover:bg-white hover:bg-opacity-10 bg-white bg-opacity-20 backdrop-blur-sm`}
+                  title="Click for accessibility options"
+                >
+                  <i className="fa-solid fa-universal-access"></i>
+                  <span className="hidden sm:inline">Accessibility</span>
+                </button>
+
+                {/* Accessibility Menu Dropdown */}
+                {showAccessibilityMenu && (
+                  <div
+                    id="accessibility-menu"
+                    className={`absolute top-full right-0 mt-2 rounded-lg shadow-2xl border z-50 ${
+                      isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300'
+                    }`}
+                    style={{ minWidth: '280px' }}
+                  >
+                    <div className="flex justify-between items-center px-4 pt-3 pb-1">
+                      <h4 className={`font-bold text-sm ${isDark ? 'text-white' : 'text-gray-800'}`}>Accessibility Options</h4>
+                      <button
+                        onClick={() => setShowAccessibilityMenu(false)}
+                        className={`text-lg transition-all hover:opacity-70 ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-800'}`}
+                        title="Close accessibility menu"
+                      >
+                        <i className="fa-solid fa-xmark"></i>
+                      </button>
+                    </div>
+                    <div className={`p-4 pt-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                      {/* Font Size */}
+                      <div className="mb-4 pb-4 border-b border-gray-400">
+                        <label className="flex items-center gap-2 font-semibold text-sm mb-2">
+                          <i className="fa-solid fa-text-height"></i>
+                          Font Size
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setFontSize('normal')}
+                            className={`flex-1 px-2 py-1 text-xs rounded transition-all ${
+                              fontSize === 'normal'
+                                ? isDark ? 'bg-green-700 text-white' : 'bg-green-500 text-white'
+                                : isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            Normal
+                          </button>
+                          <button
+                            onClick={() => setFontSize('large')}
+                            className={`flex-1 px-2 py-1 text-sm rounded transition-all ${
+                              fontSize === 'large'
+                                ? isDark ? 'bg-green-700 text-white' : 'bg-green-500 text-white'
+                                : isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            Large
+                          </button>
+                          <button
+                            onClick={() => setFontSize('xlarge')}
+                            className={`flex-1 px-2 py-1 text-lg rounded transition-all ${
+                              fontSize === 'xlarge'
+                                ? isDark ? 'bg-green-700 text-white' : 'bg-green-500 text-white'
+                                : isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            XL
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* High Contrast */}
+                      <div className="mb-4 pb-4 border-b border-gray-400">
+                        <label className="flex items-center gap-2 font-semibold text-sm mb-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={highContrast}
+                            onChange={() => setHighContrast(!highContrast)}
+                            className="w-4 h-4 rounded"
+                          />
+                          <i className="fa-solid fa-circle-half-stroke"></i>
+                          High Contrast
+                        </label>
+                      </div>
+
+                      {/* Color Blind Modes */}
+                      <div className="mb-4 pb-4 border-b border-gray-400">
+                        <label className="flex items-center gap-2 font-semibold text-sm mb-2">
+                          <i className="fa-solid fa-eye"></i>
+                          Color Vision
+                        </label>
+                        <div className="space-y-1">
+                          {['normal', 'protanopia', 'deuteranopia'].map((mode) => (
+                            <button
+                              key={mode}
+                              onClick={() => setColorBlindMode(mode)}
+                              className={`w-full text-left px-2 py-1 text-xs rounded transition-all ${
+                                colorBlindMode === mode
+                                  ? isDark ? 'bg-green-700 text-white' : 'bg-green-500 text-white'
+                                  : isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                              }`}
+                            >
+                              {mode === 'normal' ? 'Normal' : mode === 'protanopia' ? 'Protanopia (Red-Blind)' : 'Deuteranopia (Green-Blind)'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Read Aloud */}
+                      <div>
+                        <button
+                          onClick={() => {
+                            if (readAloudEnabled) {
+                              stopReadAloud();
+                            } else {
+                              setReadAloudEnabled(true);
+                              handleReadAloud();
+                            }
+                          }}
+                          className={`w-full px-3 py-2 rounded font-semibold text-sm transition-all flex items-center gap-2 justify-center ${
+                            readAloudEnabled
+                              ? 'bg-red-600 hover:bg-red-700 text-white'
+                              : isDark ? 'bg-blue-700 hover:bg-blue-600' : 'bg-blue-600 hover:bg-blue-700'
+                          } text-white`}
+                        >
+                          <i className={`fa-solid ${readAloudEnabled ? 'fa-stop' : 'fa-volume-high'}`}></i>
+                          {readAloudEnabled ? 'Stop Reading' : '🔊 Read Aloud'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6">
+          <div 
+            className="grid md:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6"
+            style={{
+              fontSize: fontSize === 'large' ? '1.125rem' : fontSize === 'xlarge' ? '1.25rem' : '1rem',
+              filter: colorBlindMode === 'protanopia' ? 'url(#protanopia-filter)' : colorBlindMode === 'deuteranopia' ? 'url(#deuteranopia-filter)' : 'none',
+              ...(highContrast && {
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                color: isDark ? '#ffffff' : '#000000',
+                border: `2px solid ${isDark ? '#ffffff' : '#000000'}`
+              })
+            }}
+          >
             {/* Left Column - Images and QR */}
             <div>
               {organism.images && organism.images.length > 0 && (
-                <div className="mb-6">
-                  <h3 className={`text-lg sm:text-xl font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}><i className="fa-solid fa-image"></i> Images</h3>
+                <div className="mb-6" style={highContrast ? { backgroundColor: isDark ? '#000000' : '#ffffff', border: `2px solid ${isDark ? '#ffffff' : '#000000'}`, padding: '1rem' } : {}}>
+                  <h3 className={`font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`} style={{ fontSize: fontSize === 'large' ? '1.25rem' : fontSize === 'xlarge' ? '1.375rem' : '1.125rem', ...(highContrast && { color: isDark ? '#ffffff' : '#000000' }) }}><i className="fa-solid fa-image"></i> Images</h3>
                   <div className="grid gap-4">
                     {organism.images.map((image, index) => (
-                      <div key={index} className={`flex items-center justify-center ${isDark ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg w-full h-48 sm:h-64 mx-auto`}>
+                      <div key={index} className={`flex items-center justify-center rounded-lg w-full h-48 sm:h-64 mx-auto`} style={highContrast ? { backgroundColor: isDark ? '#1a1a1a' : '#f0f0f0', border: `2px solid ${isDark ? '#ffffff' : '#000000'}` } : { backgroundColor: isDark ? '#374151' : '#f3f4f6' }}>
                         <img
                           src={image}
                           alt={`${organism.name} ${index + 1}`}
@@ -916,15 +1280,16 @@ const OrganismDetail = () => {
               )}
 
               {organism.qr_code_image && (
-                <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-50'} p-4 sm:p-6 rounded-lg`}>
-                  <h3 className={`text-lg sm:text-xl font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}><i className="fa-solid fa-qrcode"></i> QR Code</h3>
+                <div style={highContrast ? { backgroundColor: isDark ? '#000000' : '#ffffff', border: `2px solid ${isDark ? '#ffffff' : '#000000'}`, padding: '1rem' } : { backgroundColor: isDark ? '#374151' : '#f3f4f6', padding: '1rem' }} className="rounded-lg">
+                  <h3 className={`font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`} style={{ fontSize: fontSize === 'large' ? '1.25rem' : fontSize === 'xlarge' ? '1.375rem' : '1.125rem', ...(highContrast && { color: isDark ? '#ffffff' : '#000000' }) }}><i className="fa-solid fa-qrcode"></i> QR Code</h3>
                   <div className="text-center">
                     <img
                       src={organism.qr_code_image}
                       alt="QR Code"
-                      className={`mx-auto mb-4 border-2 rounded w-32 h-32 sm:w-40 sm:h-40 ${isDark ? 'border-gray-600' : 'border-gray-300'}`}
+                      className={`mx-auto mb-4 border-2 rounded w-32 h-32 sm:w-40 sm:h-40`}
+                      style={highContrast ? { borderColor: isDark ? '#ffffff' : '#000000' } : { borderColor: isDark ? '#4b5563' : '#d1d5db' }}
                     />
-                    <p className={`text-xs sm:text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <p style={{ fontSize: fontSize === 'large' ? '1rem' : fontSize === 'xlarge' ? '1.125rem' : '0.875rem', ...(highContrast && { color: isDark ? '#ffffff' : '#000000' }) }} className={`${isDark && !highContrast ? 'text-gray-400' : ''}`}>
                       Scan this QR code to share this organism with others
                     </p>
                   </div>
@@ -935,14 +1300,14 @@ const OrganismDetail = () => {
             {/* Right Column - Details */}
             <div className="space-y-4 sm:space-y-6">
               {/* Classification */}
-              {organism.classification && (
-                <div>
-                  <h3 className={`text-lg sm:text-xl font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}><i className="fa-solid fa-microscope"></i> Classification</h3>
-                  <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-50'} p-4 rounded-lg`}>
-                    {Object.entries(organism.classification).map(([key, value]) => (
-                      <div key={key} className={`flex justify-between py-2 border-b last:border-b-0 ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
-                        <span className={`font-medium capitalize ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{key}:</span>
-                        <span className={isDark ? 'text-gray-200' : 'text-gray-800'}>{value}</span>
+              {displayOrganism.classification && (
+                <div style={highContrast ? { backgroundColor: isDark ? '#000000' : '#ffffff', border: `2px solid ${isDark ? '#ffffff' : '#000000'}`, padding: '1rem' } : {}}>
+                  <h3 className={`font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`} style={{ fontSize: fontSize === 'large' ? '1.25rem' : fontSize === 'xlarge' ? '1.375rem' : '1.125rem' }}><i className="fa-solid fa-microscope"></i> Classification</h3>
+                  <div style={highContrast ? { backgroundColor: isDark ? '#000000' : '#ffffff' } : { backgroundColor: isDark ? '#374151' : '#f3f4f6' }} className={`p-4 rounded-lg`}>
+                    {Object.entries(displayOrganism.classification).map(([key, value]) => (
+                      <div key={key} className={`flex justify-between py-2 border-b last:border-b-0 ${isDark ? 'border-gray-600' : 'border-gray-200'}`} style={{ fontSize: fontSize === 'large' ? '1rem' : fontSize === 'xlarge' ? '1.125rem' : '0.875rem', ...(highContrast && { borderColor: isDark ? '#ffffff' : '#000000' }) }}>
+                        <span className={`font-medium capitalize ${isDark ? 'text-gray-300' : 'text-gray-700'}`} style={highContrast ? { color: isDark ? '#ffffff' : '#000000' } : {}}>{key}:</span>
+                        <span style={highContrast ? { color: isDark ? '#ffffff' : '#000000' } : { color: isDark ? '#e5e7eb' : '#1f2937' }}>{value}</span>
                       </div>
                     ))}
                   </div>
@@ -950,31 +1315,31 @@ const OrganismDetail = () => {
               )}
 
               {/* Morphology */}
-              {organism.morphology && (
-                <div>
-                  <h3 className={`text-lg sm:text-xl font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}><i className="fa-solid fa-hands-holding"></i> Morphology</h3>
-                  <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-50'} p-4 rounded-lg`}>
-                    <p className={`${isDark ? 'text-gray-200' : 'text-gray-700'} whitespace-pre-line text-xs sm:text-sm`}>{organism.morphology}</p>
+              {displayOrganism.morphology && (
+                <div style={highContrast ? { backgroundColor: isDark ? '#000000' : '#ffffff', border: `2px solid ${isDark ? '#ffffff' : '#000000'}`, padding: '1rem' } : {}}>
+                  <h3 className={`font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`} style={{ fontSize: fontSize === 'large' ? '1.25rem' : fontSize === 'xlarge' ? '1.375rem' : '1.125rem', ...(highContrast && { color: isDark ? '#ffffff' : '#000000' }) }}><i className="fa-solid fa-hands-holding"></i> Morphology</h3>
+                  <div style={highContrast ? { backgroundColor: isDark ? '#000000' : '#ffffff' } : { backgroundColor: isDark ? '#374151' : '#f3f4f6' }} className={`p-4 rounded-lg`}>
+                    <p style={{ fontSize: fontSize === 'large' ? '1rem' : fontSize === 'xlarge' ? '1.125rem' : '0.875rem', ...(highContrast && { color: isDark ? '#ffffff' : '#000000' }) }} className={`${isDark && !highContrast ? 'text-gray-200' : ''} whitespace-pre-line`}>{displayOrganism.morphology}</p>
                   </div>
                 </div>
               )}
 
               {/* Physiology */}
-              {organism.physiology && (
-                <div>
-                  <h3 className={`text-lg sm:text-xl font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}><i className="fa-solid fa-bolt"></i> Physiology</h3>
-                  <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-50'} p-4 rounded-lg`}>
-                    <p className={`${isDark ? 'text-gray-200' : 'text-gray-700'} whitespace-pre-line text-xs sm:text-sm`}>{organism.physiology}</p>
+              {displayOrganism.physiology && (
+                <div style={highContrast ? { backgroundColor: isDark ? '#000000' : '#ffffff', border: `2px solid ${isDark ? '#ffffff' : '#000000'}`, padding: '1rem' } : {}}>
+                  <h3 className={`font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`} style={{ fontSize: fontSize === 'large' ? '1.25rem' : fontSize === 'xlarge' ? '1.375rem' : '1.125rem', ...(highContrast && { color: isDark ? '#ffffff' : '#000000' }) }}><i className="fa-solid fa-bolt"></i> Physiology</h3>
+                  <div style={highContrast ? { backgroundColor: isDark ? '#000000' : '#ffffff' } : { backgroundColor: isDark ? '#374151' : '#f3f4f6' }} className={`p-4 rounded-lg`}>
+                    <p style={{ fontSize: fontSize === 'large' ? '1rem' : fontSize === 'xlarge' ? '1.125rem' : '0.875rem', ...(highContrast && { color: isDark ? '#ffffff' : '#000000' }) }} className={`${isDark && !highContrast ? 'text-gray-200' : ''} whitespace-pre-line`}>{displayOrganism.physiology}</p>
                   </div>
                 </div>
               )}
 
               {/* Description */}
-              {organism.description && (
-                <div>
-                  <h3 className={`text-lg sm:text-xl font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}><i className="fa-solid fa-file-waveform"></i> Description</h3>
-                  <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-50'} p-4 rounded-lg`}>
-                    <p className={`${isDark ? 'text-gray-200' : 'text-gray-700'} whitespace-pre-line text-xs sm:text-sm`}>{organism.description}</p>
+              {displayOrganism.description && (
+                <div style={highContrast ? { backgroundColor: isDark ? '#000000' : '#ffffff', border: `2px solid ${isDark ? '#ffffff' : '#000000'}`, padding: '1rem' } : {}}>
+                  <h3 className={`font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`} style={{ fontSize: fontSize === 'large' ? '1.25rem' : fontSize === 'xlarge' ? '1.375rem' : '1.125rem', ...(highContrast && { color: isDark ? '#ffffff' : '#000000' }) }}><i className="fa-solid fa-file-waveform"></i> Description</h3>
+                  <div style={highContrast ? { backgroundColor: isDark ? '#000000' : '#ffffff' } : { backgroundColor: isDark ? '#374151' : '#f3f4f6' }} className={`p-4 rounded-lg`}>
+                    <p style={{ fontSize: fontSize === 'large' ? '1rem' : fontSize === 'xlarge' ? '1.125rem' : '0.875rem', ...(highContrast && { color: isDark ? '#ffffff' : '#000000' }) }} className={`${isDark && !highContrast ? 'text-gray-200' : ''} whitespace-pre-line`}>{displayOrganism.description}</p>
                   </div>
                 </div>
               )}

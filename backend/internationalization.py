@@ -15,6 +15,7 @@ class Translator:
         "fr": "French",
         "de": "German",
         "hi": "Hindi",
+        "mr": "Marathi",
         "pt": "Portuguese",
         "ja": "Japanese",
         "zh": "Chinese"
@@ -149,6 +150,38 @@ class Translator:
             "loading": "लोड हो रहा है...",
             "error": "एक त्रुटि हुई",
             "success": "सफल!"
+        },
+        "mr": {
+            "suggest_organism": "जीव सुचवा",
+            "suggest_video": "व्हिडिओ सुचवा",
+            "search": "शोध",
+            "filters": "फिल्टर",
+            "kingdom": "राज्य",
+            "phylum": "फायलम",
+            "class": "वर्ग",
+            "species": "प्रजाती",
+            "scientific_name": "वैज्ञानिक नाव",
+            "description": "वर्णन",
+            "images": "चित्रे",
+            "videos": "व्हिडिओज",
+            "comments": "टिप्पण्या",
+            "endangered": "धोक्यात आलेली",
+            "habitat": "निवास",
+            "admin_panel": "प्रशासक पॅनल",
+            "leaderboard": "लीडरबोर्ड",
+            "my_submissions": "माझे सुचवणा",
+            "dashboard": "डॅशबोर्ड",
+            "logout": "लॉग आउट",
+            "submit": "सबमिट करा",
+            "cancel": "रद्द करा",
+            "delete": "हटवा",
+            "edit": "संपादित करा",
+            "save": "जतन करा",
+            "search_organisms": "जीव शोधा...",
+            "no_results": "कोणाही परिणाम मिळाले नाहीत",
+            "loading": "लोड होत आहे...",
+            "error": "एक त्रुटी आली",
+            "success": "यशस्वी!"
         }
     }
     
