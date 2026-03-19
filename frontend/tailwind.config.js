@@ -7,6 +7,10 @@ module.exports = {
   ],
   theme: {
   	extend: {
+  		screens: {
+  			xs: '320px',
+  			sm: '640px'
+  		},
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',

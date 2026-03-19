@@ -191,19 +191,20 @@ const BiotubeAdminPanel = ({ token, isDark }) => {
       </div>
 
       {/* Tabs */}
-      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky top-0 z-40`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex gap-0 overflow-x-auto">
+      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky top-0 z-40 overflow-x-auto scrollbar-hide`}>
+        <div className="flex gap-1 sm:gap-0 px-2 sm:px-4 min-w-max">
           {[
-            { id: 'dashboard', label: <><i className="fa-solid fa-chart-line mr-1"></i>Dashboard</> },
-            { id: 'add', label: <><i className="fa-solid fa-plus mr-1"></i>Add Video</> },
-            { id: 'manage', label: <><i className="fa-solid fa-pen-to-square mr-1"></i>Manage Videos</> },
-            { id: 'suggestions', label: <><i className="fa-solid fa-lightbulb mr-1"></i>Suggestions</> },
-            { id: 'history', label: <><i className="fa-solid fa-users mr-1"></i>User History</> }
+            { id: 'dashboard', icon: 'fa-chart-line', label: 'Dashboard'},
+            { id: 'add', icon: 'fa-plus', label: 'Add Video'},
+            { id: 'manage', icon: 'fa-pen-to-square', label: 'Manage'},
+            { id: 'suggestions', icon: 'fa-lightbulb', label: 'Suggestions'},
+            { id: 'history', icon: 'fa-users', label: 'History'}
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-4 font-semibold whitespace-nowrap border-b-2 transition-all ${
+              title={tab.label}
+              className={`flex items-center gap-1 px-3 sm:px-5 py-3 sm:py-4 font-semibold text-xs sm:text-sm transition-all border-b-2 whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
                   ? isDark
                     ? 'border-purple-500 text-purple-400'
@@ -213,7 +214,8 @@ const BiotubeAdminPanel = ({ token, isDark }) => {
                   : 'border-transparent text-gray-600 hover:text-gray-900'
               }`}
             >
-              {tab.label}
+              <i className={`fa-solid ${tab.icon} text-sm`}></i>
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
         </div>

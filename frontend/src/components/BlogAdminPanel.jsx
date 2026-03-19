@@ -175,22 +175,26 @@ const BlogAdminPanel = ({ token, isDark }) => {
       </div>
 
       {/* Tabs */}
-      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky z-30 top-[70px]`}>
-        <div className="max-w-7xl mx-auto px-4 flex gap-2 overflow-x-auto">
-          {['dashboard', 'add', 'manage', 'suggestions'].map(tab => (
+      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky z-30 top-[70px] overflow-x-auto scrollbar-hide`}>
+        <div className="flex gap-1 sm:gap-0 px-2 sm:px-4 min-w-max">
+          {[
+            { id: 'dashboard', icon: 'fa-chart-line', label: 'Dashboard'},
+            { id: 'add', icon: 'fa-plus', label: 'Add'},
+            { id: 'manage', icon: 'fa-edit', label: 'Manage'},
+            { id: 'suggestions', icon: 'fa-lightbulb', label: 'Suggestions'}
+          ].map(tab => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-3 font-semibold whitespace-nowrap transition-all border-b-2 ${
-                activeTab === tab
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              title={tab.label}
+              className={`flex items-center gap-1 px-3 sm:px-5 py-3 sm:py-4 font-semibold text-xs sm:text-sm transition-all border-b-2 whitespace-nowrap flex-shrink-0 ${
+                activeTab === tab.id
                   ? `border-blue-500 ${isDark ? 'text-blue-400' : 'text-blue-600'}`
                   : `border-transparent ${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-900'}`
               }`}
             >
-              {tab === 'dashboard' && <><i className="fa-solid fa-chart-line mr-1"></i>Dashboard</>}
-              {tab === 'add' && <><i className="fa-solid fa-plus mr-1"></i>Add</>}
-              {tab === 'manage' && <><i className="fa-solid fa-edit mr-1"></i>Manage</>}
-              {tab === 'suggestions' && <><i className="fa-solid fa-lightbulb mr-1"></i>Suggestions</>}
+              <i className={`fa-solid ${tab.icon} text-sm`}></i>
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
         </div>

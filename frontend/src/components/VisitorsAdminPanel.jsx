@@ -741,27 +741,29 @@ const VisitorsAdminPanel = ({ token, isDark }) => {
       </div>
 
       {/* Tabs */}
-      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky top-0 z-40`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex gap-0 overflow-x-auto">
+      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky top-0 z-40 overflow-x-auto scrollbar-hide`}>
+        <div className="flex gap-1 sm:gap-0 px-2 sm:px-4 min-w-max">
           {[
-            { id: 'dashboard', label: <><i className="fa-solid fa-chart-line mr-1"></i>Dashboard</>, icon: 'fa-chart-line' },
-            { id: 'realtime', label: <><i className="fa-solid fa-bolt mr-1"></i>Real-Time</>, icon: 'fa-bolt' },
-            { id: 'analytics', label: <><i className="fa-solid fa-chart-bar mr-1"></i>Analytics</>, icon: 'fa-chart-bar' },
-            { id: 'behavior', label: <><i className="fa-solid fa-chart-pie mr-1"></i>Behavior</>, icon: 'fa-chart-pie' },
-            { id: 'engagement', label: <><i className="fa-solid fa-hand-fist mr-1"></i>Engagement</>, icon: 'fa-hand-fist' },
-            { id: 'performance', label: <><i className="fa-solid fa-gauge-high mr-1"></i>Performance</>, icon: 'fa-gauge-high' },
-            { id: 'list', label: <><i className="fa-solid fa-list mr-1"></i>List</>, icon: 'fa-list' }
+            { id: 'dashboard', icon: 'fa-chart-line', label: 'Dashboard'},
+            { id: 'realtime', icon: 'fa-bolt', label: 'Real-Time'},
+            { id: 'analytics', icon: 'fa-chart-bar', label: 'Analytics'},
+            { id: 'behavior', icon: 'fa-chart-pie', label: 'Behavior'},
+            { id: 'engagement', icon: 'fa-hand-fist', label: 'Engagement'},
+            { id: 'performance', icon: 'fa-gauge-high', label: 'Performance'},
+            { id: 'list', icon: 'fa-list', label: 'List'}
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 sm:px-6 py-3 font-semibold text-sm transition-all border-b-2 whitespace-nowrap ${
+              title={tab.label}
+              className={`flex items-center gap-1 px-3 sm:px-5 py-3 sm:py-4 font-semibold text-xs sm:text-sm transition-all border-b-2 whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
                   ? `border-purple-500 ${isDark ? 'text-purple-400' : 'text-purple-600'}`
                   : `border-transparent ${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-900'}`
               }`}
             >
-              {tab.label}
+              <i className={`fa-solid ${tab.icon} text-sm`}></i>
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
         </div>

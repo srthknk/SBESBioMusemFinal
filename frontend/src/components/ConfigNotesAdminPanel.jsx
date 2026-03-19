@@ -360,22 +360,24 @@ const ConfigNotesAdminPanel = ({ token, isDark }) => {
       )}
 
       {/* Tabs */}
-      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky top-0 z-20 mt-4`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex gap-0 overflow-x-auto">
+      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky top-0 z-20 mt-4 overflow-x-auto scrollbar-hide`}>
+        <div className="flex gap-1 sm:gap-0 px-2 sm:px-4 min-w-max">
           {[
-            { id: 'notes', label: <><i className="fa-solid fa-note-sticky mr-2"></i>Configuration Notes</> },
-            { id: 'pending', label: <><i className="fa-solid fa-hourglass-half mr-2"></i>Pending Approvals ({pendingRequests.length})</> }
+            { id: 'notes', icon: 'fa-note-sticky', label: 'Configuration Notes'},
+            { id: 'pending', icon: 'fa-hourglass-half', label: `Pending Approvals (${pendingRequests.length})`}
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-4 font-semibold whitespace-nowrap transition-all border-b-2 ${
+              title={tab.label}
+              className={`flex items-center gap-1 px-3 sm:px-5 py-3 sm:py-4 font-semibold text-xs sm:text-sm transition-all border-b-2 whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
                   ? `border-blue-500 ${isDark ? 'text-blue-400' : 'text-blue-600'}`
                   : `border-transparent ${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`
               }`}
             >
-              {tab.label}
+              <i className={`fa-solid ${tab.icon} text-sm`}></i>
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
         </div>
