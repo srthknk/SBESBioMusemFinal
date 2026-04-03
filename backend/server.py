@@ -1162,9 +1162,14 @@ async def root_health():
     return {"status": "ok", "service": "Biology Museum API", "version": "1.0.0"}
 
 @api_router.post("/admin/identify-organism")
-async def identify_organism_from_camera(request: dict):
+async def identify_organism_from_camera(
+    request: dict,
+    credentials: HTTPAuthorizationCredentials = Depends(verify_admin_token)
+):
     """
     Identify organism from camera image using Gemini Vision AI.
+    
+    REQUIRES: Admin authentication (Bearer token)
     
     Request:
     {
@@ -1192,6 +1197,7 @@ async def identify_organism_from_camera(request: dict):
     """
     try:
         if not HAS_GENAI or not GEMINI_API_KEY:
+            logger.error("[IDENTIFY_ORGANISM] ✗ Gemini API not configured")
             raise ValueError("Gemini API not configured")
         
         image_data = request.get("image_data", "")
@@ -1280,6 +1286,7 @@ Guidelines:
             }
         
         print(f"[OK] Identified: {result.get('organism_name')} (confidence: {result.get('confidence')}%)")
+        logger.info(f"[IDENTIFY_ORGANISM] ✓ Successfully identified: {result.get('organism_name')} (confidence: {result.get('confidence')}%)")
         
         return {
             "success": True,
@@ -1292,20 +1299,53 @@ Guidelines:
         }
     
     except json.JSONDecodeError as e:
-        logger.error(f"JSON parse error: {e}")
+        logger.error(f"[IDENTIFY_ORGANISM] ✗ JSON parse error: {e}")
+        logger.debug(f"Response text that failed to parse: {response_text if 'response_text' in locals() else 'N/A'}")
         return {
             "success": False,
             "error": "Failed to parse AI response. Please try again.",
             "message": "AI response parsing failed"
         }
     except Exception as e:
-        logger.error(f"Organism identification error: {e}")
+        # SECURITY: Do NOT expose raw Gemini API errors that leak infrastructure details
+        error_str = str(e).lower()
+        logger.error(f"[IDENTIFY_ORGANISM] ✗ Organism identification error: {e}")
         import traceback
-        traceback.print_exc()
+        logger.error(f"[IDENTIFY_ORGANISM] Traceback: {traceback.format_exc()}")
+        
+        # Sanitize error messages to prevent information disclosure
+        # Check for API quota/rate limit errors
+        if "quota" in error_str or "rate_limit" in error_str or "limited" in error_str:
+            logger.warning("[IDENTIFY_ORGANISM] API quota/rate limit error detected - returning generic message")
+            return {
+                "success": False,
+                "error": "AI service is temporarily unavailable due to resource limits. Please try again in a moment.",
+                "message": "Service temporarily unavailable"
+            }
+        
+        # Check for API key/authentication errors (should not happen internally, but be safe)
+        if "api_key" in error_str or "authentication" in error_str or "unauthorized" in error_str:
+            logger.warning("[IDENTIFY_ORGANISM] API authentication error detected - returning generic message")
+            return {
+                "success": False,
+                "error": "AI service configuration error. Please contact support.",
+                "message": "Service configuration error"
+            }
+        
+        # Check for model/resource errors
+        if "model" in error_str or "resource" in error_str or "not found" in error_str:
+            logger.warning("[IDENTIFY_ORGANISM] Model/resource error detected - returning generic message")
+            return {
+                "success": False,
+                "error": "AI service is currently unavailable. Please try again later.",
+                "message": "Service unavailable"
+            }
+        
+        # Generic fallback for all other errors
         return {
             "success": False,
-            "error": str(e),
-            "message": "Failed to identify organism"
+            "error": "Failed to identify organism. Please try again with a clearer image.",
+            "message": "Identification failed"
         }
 
 @api_router.post("/admin/login", response_model=AdminToken)
