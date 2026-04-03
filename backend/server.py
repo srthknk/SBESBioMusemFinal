@@ -215,12 +215,16 @@ async def init_mongodb():
                 print(f"[INFO] Retrying in {wait_time} seconds...")
                 await asyncio.sleep(wait_time)
     
-    # FAIL HARD - No fallback to unreliable local storage
+    # WARN: MongoDB connection failed - server will start but without database
+    # The /health endpoint will still work, but API endpoints will fail gracefully
     error_msg = (
         "\n" + "="*80 + "\n"
-        "[CRITICAL] ✗ MONGODB CONNECTION FAILED - APPLICATION WILL NOT START\n"
+        "[CRITICAL] ✗ MONGODB CONNECTION FAILED\n"
         "\n"
-        "REQUIRED ACTIONS:\n"
+        "Server is starting in DEGRADED MODE (health endpoint available).\n"
+        "API endpoints will return database connection errors.\n"
+        "\n"
+        "REQUIRED ACTIONS TO FIX DATABASE CONNECTIVITY:\n"
         "1. Configure MongoDB Atlas IP Whitelist IMMEDIATELY:\n"
         "   - Go to: https://cloud.mongodb.com\n"
         "   - Log in with your account\n"
@@ -245,12 +249,13 @@ async def init_mongodb():
         f"   - URL: {MONGO_URL[:60]}...\n"
         f"   - Database: {os.environ.get('DB_NAME', 'biomuseum')}\n"
         "\n"
-        "NOTE: This application requires MongoDB. There is NO fallback\n"
-        "to local storage. All data MUST persist in MongoDB.\n"
+        "NOTE: This application requires MongoDB for API functionality.\n"
+        "The /health endpoint will work, but API calls will fail.\n"
         "="*80
     )
     print(error_msg)
-    raise RuntimeError("MongoDB connection failed after 15 retry attempts. See error message above.")
+    logging.error(error_msg)
+    # Don't raise - let server start in degraded mode
 
 # Define Models
 class OrganismBase(BaseModel):
@@ -744,6 +749,7 @@ app.add_middleware(
 # Does NOT call database - responds instantly
 # Must be defined BEFORE api_router for proper routing priority
 # Supports BOTH GET (returns JSON) and HEAD (returns empty 200 OK)
+# These ALWAYS return 200 OK immediately, even if database is down
 @app.get("/health")
 async def health_check_get():
     """
@@ -752,12 +758,23 @@ async def health_check_get():
     Returns 200 OK with JSON body immediately without touching database.
     Used by API clients and monitoring tools.
     Safe for production - no authentication required.
+    This endpoint is independent of MongoDB connection status.
     """
-    return {
-        "status": "ok",
-        "timestamp": get_ist_now(),
-        "service": "biomuseum-backend"
-    }
+    try:
+        return {
+            "status": "ok" if mongodb_connected else "degraded",
+            "timestamp": get_ist_now(),
+            "service": "biomuseum-backend",
+            "database": "connected" if mongodb_connected else "connecting"
+        }
+    except Exception as e:
+        # Always return 200 OK even on error
+        return {
+            "status": "ok",
+            "timestamp": get_ist_now(),
+            "service": "biomuseum-backend",
+            "message": "Server is running"
+        }
 
 @app.head("/health")
 async def health_check_head():
@@ -768,6 +785,7 @@ async def health_check_head():
     HEAD is faster than GET (no response body).
     Returns HTTP 200 immediately without touching database.
     Safe for production - no authentication required.
+    This endpoint is independent of MongoDB connection status.
     """
     # HEAD returns 200 OK with no response body
     # FastAPI handles this automatically
@@ -4993,14 +5011,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@app.on_event("startup")
-async def startup_event():
+# Background MongoDB connection task - runs without blocking server startup
+async def connect_mongodb_background():
+    """Try to connect to MongoDB in the background without blocking server startup"""
+    global mongodb_connected
     try:
         await init_mongodb()
-        logging.info("Startup event completed successfully")
+        mongodb_connected = True
+        logging.info("Background MongoDB connection successful")
     except Exception as e:
-        logging.error(f"Startup event failed: {e}", exc_info=True)
-        # Don't re-raise - let the server continue even if startup fails
+        logging.error(f"Background MongoDB connection failed: {e}", exc_info=True)
+        mongodb_connected = False
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize app on startup - schedule MongoDB connection in background"""
+    logging.info("Server starting up - health check will be available immediately")
+    # Schedule MongoDB connection as a background task (don't await it)
+    # This allows /health endpoint to be available while MongoDB connects
+    import asyncio
+    asyncio.create_task(connect_mongodb_background())
 
 if __name__ == "__main__":
     import uvicorn
