@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Query, Header, UploadFile, File
+from fastapi.responses import Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -787,9 +788,14 @@ async def health_check_head():
     Safe for production - no authentication required.
     This endpoint is independent of MongoDB connection status.
     """
-    # HEAD returns 200 OK with no response body
-    # FastAPI handles this automatically
-    return None
+    # Return explicit Response object with proper headers for HEAD request
+    return Response(
+        status_code=200,
+        headers={
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=60"
+        }
+    )
 # ==================== END HEALTH CHECK ====================
 
 api_router = APIRouter(prefix="/api")
