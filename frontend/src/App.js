@@ -621,7 +621,7 @@ const Homepage = () => {
 
             {/* Footer in Sidebar */}
             <div className="border-t border-gray-600 p-4">
-              <p className="text-gray-400 text-sm text-center">© 2025 {siteSettings?.website_name || 'ZooMuseum'}</p>
+              <p className="text-gray-400 text-sm text-center">© 2026 {siteSettings?.website_name || 'ZooMuseum'}</p>
             </div>
           </div>
         </div>
