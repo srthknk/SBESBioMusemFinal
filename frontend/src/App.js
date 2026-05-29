@@ -502,6 +502,7 @@ const Homepage = () => {
         </div>
       </div>
 
+
       {/* Animated Sidebar Menu */}
       {showMenu && (
         <div className="fixed inset-0 z-40 flex">
@@ -5533,6 +5534,28 @@ function App() {
   // Initialize visitor tracking on app load
   useEffect(() => {
     initializeVisitorTracking();
+  }, []);
+
+  // Disable right-click context menu in production only
+  useEffect(() => {
+    // Check if we're in development (localhost or NODE_ENV === 'development')
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1' ||
+                       process.env.NODE_ENV === 'development';
+
+    // Only disable right-click in production
+    if (!isLocalhost) {
+      const handleContextMenu = (e) => {
+        e.preventDefault();
+        return false;
+      };
+
+      document.addEventListener('contextmenu', handleContextMenu);
+
+      return () => {
+        document.removeEventListener('contextmenu', handleContextMenu);
+      };
+    }
   }, []);
 
   return (

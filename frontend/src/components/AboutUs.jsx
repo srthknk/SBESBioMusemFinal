@@ -301,10 +301,16 @@ const AboutUs = ({ isDark }) => {
                   Sarthak N. Kulkarni
                 </p>
                 <p className={`text-xs sm:text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-black'}`}>
-                  B.Sc First Year, Zoology Department<br />
-                  SBES College of Science<br />
-                  Chh. Sambhaji Nagar
-                </p>
+                  B.Sc Second Year, Zoology Department<br />
+                  SBES College of Science <br />
+                  Chh. Sambhaji  Nagar, Maharashtra, India 
+                  </p>
+                  <button>
+                    <a href="https://api.whatsapp.com/send/?phone=9322305058&text&type=phone_number&app_absent=0" target="_blank" rel="noopener noreferrer" className={`${isDark ? 'hover:text-yellow-400' : 'hover:text-yellow-600'} transition-colors duration-200 flex items-center gap-2 mt-3 text-xs sm:text-sm`}>
+                      <i className="fa-brands fa-whatsapp"></i>
+                      <span>Connect on WhatsApp</span>
+                    </a>
+                  </button>
               </div>
             </div>
           </div>
