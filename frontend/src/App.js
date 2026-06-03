@@ -35,7 +35,7 @@ const BACKEND_URL = (() => {
   // IMPORTANT: During development, always use localhost:8000
   // Check if this is development (not built)
   if (process.env.NODE_ENV === 'development') {
-    console.log('Development mode - Using backend at http://localhost:8000');
+    // console.log('Development mode - Using backend at http://localhost:8000');
     return 'http://localhost:8000';
   }
   
@@ -59,7 +59,7 @@ const BACKEND_URL = (() => {
 })();
 
 const API = `${BACKEND_URL}/api`;
-console.log('API Base URL:', API);
+// console.log('API Base URL:', API);
 
 // Configure axios with longer timeout
 axios.defaults.timeout = 30000; // 30 seconds for long operations
@@ -158,15 +158,15 @@ const Homepage = () => {
   // Apply custom colors and fonts from siteSettings
   useEffect(() => {
     if (!siteSettings || Object.keys(siteSettings).length === 0) {
-      console.log('⏳ Waiting for siteSettings to load...');
+      // console.log('⏳ Waiting for siteSettings to load...');
       return;
     }
 
-    console.log('🎨 Applying custom colors and fonts:', siteSettings);
+    // console.log('🎨 Applying custom colors and fonts:', siteSettings);
 
     // Load Google Fonts if font_url is provided
     if (siteSettings.font_url) {
-      console.log('📝 Loading font from URL:', siteSettings.font_url);
+      // console.log('📝 Loading font from URL:', siteSettings.font_url);
       let fontLink = document.querySelector('link[data-custom-font="true"]');
       if (fontLink) {
         fontLink.href = siteSettings.font_url;
@@ -176,7 +176,7 @@ const Homepage = () => {
         link.rel = 'stylesheet';
         link.setAttribute('data-custom-font', 'true');
         link.onerror = () => console.error('❌ Failed to load font');
-        link.onload = () => console.log('✅ Font loaded successfully');
+        // link.onload = () => console.log('✅ Font loaded successfully');
         document.head.appendChild(link);
       }
     }
@@ -186,7 +186,7 @@ const Homepage = () => {
     const secondaryColor = siteSettings.secondary_color || '#3b82f6';
     const fontFamily = siteSettings.font_family ? `"${siteSettings.font_family}", system-ui, sans-serif` : 'Poppins, system-ui, sans-serif';
 
-    console.log('🎯 Colors:', { primaryColor, secondaryColor, fontFamily });
+    // console.log('🎯 Colors:', { primaryColor, secondaryColor, fontFamily });
 
     const styleId = 'custom-theme-styles';
     let styleElement = document.getElementById(styleId);
@@ -218,7 +218,7 @@ const Homepage = () => {
     document.documentElement.style.setProperty('--secondary-color', secondaryColor, 'important');
     document.documentElement.style.setProperty('--custom-font-family', fontFamily, 'important');
     
-    console.log('✅ Styles applied successfully');
+    // console.log('✅ Styles applied successfully');
   }, [siteSettings]);
 
   const fetchOrganisms = async () => {
@@ -498,6 +498,26 @@ const Homepage = () => {
             >
               <i className="fa-solid fa-map-location-dot mr-2"></i>Journey
             </button>
+          </div>
+
+          {/* Footer Section */}
+          <div className="mt-6 sm:mt-8 md:mt-10 text-center">
+            {/* Developer Credit Text */}
+            <p className="text-xs sm:text-sm text-white drop-shadow-lg mb-3 px-4 flex items-center justify-center gap-2">
+             " <i className="fa-solid fa-cogs text-white-400"></i>
+              <span>Engineered by <span className="font-bold">Sarthak Kulkarni</span> - Why Buy Software When You Can Build it? "</span>
+            </p>
+            
+            {/* WhatsApp Connect Link */}
+            <a
+              href="https://api.whatsapp.com/send/?phone=9322305058&text&type=phone_number&app_absent=0"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-all duration-300 ease-out transform hover:scale-105 hover:shadow-xl active:scale-95 text-xs sm:text-sm drop-shadow-lg"
+            >
+              <i className="fa-brands fa-whatsapp"></i>
+              Meet the Human Behind the Code !
+            </a>
           </div>
         </div>
       </div>
@@ -2067,9 +2087,9 @@ const AdminPanel = () => {
   };
 
   const handleApprovalSuccess = (approvedData) => {
-    console.log('🔄 handleApprovalSuccess called with:', approvedData);
+    // console.log('🔄 handleApprovalSuccess called with:', approvedData);
     setApprovedOrganismData(approvedData);
-    console.log('✅ State updated, switching to add view...');
+    // console.log('✅ State updated, switching to add view...');
     setActiveView('add');
   };
 
@@ -2629,8 +2649,8 @@ const SuggestedOrganismsTab = ({ token, isDark, onApprovalSuccess }) => {
       // Extract organism_data from the response
       const organizmData = response.data.organism_data || response.data;
       
-      console.log('Approval Response:', response.data);
-      console.log('Extracted Organism Data:', organizmData);
+      // console.log('Approval Response:', response.data);
+      // console.log('Extracted Organism Data:', organizmData);
       
       // Transform to frontend format if needed
       const approvedData = {
@@ -2651,11 +2671,11 @@ const SuggestedOrganismsTab = ({ token, isDark, onApprovalSuccess }) => {
         images: organizmData.images || []
       };
       
-      console.log('✅ Formatted Approved Data:', approvedData);
+      // console.log('✅ Formatted Approved Data:', approvedData);
       
       // Call parent callback with organism data
       if (onApprovalSuccess) {
-        console.log('📤 Calling onApprovalSuccess with:', approvedData);
+        // console.log('📤 Calling onApprovalSuccess with:', approvedData);
         onApprovalSuccess(approvedData);
       }
       
@@ -2964,7 +2984,7 @@ const AddOrganismForm = ({ token, isDark, onSuccess, initialData }) => {
   // Auto-fill form when initialData is provided (from camera identification or approval)
   useEffect(() => {
     if (initialData && Object.keys(initialData).length > 0) {
-      console.log('📥 useEffect triggered with initialData:', initialData);
+      // console.log('📥 useEffect triggered with initialData:', initialData);
       
       const newFormData = {
         name: initialData.name || '',
@@ -2984,12 +3004,12 @@ const AddOrganismForm = ({ token, isDark, onSuccess, initialData }) => {
         images: Array.isArray(initialData.images) ? initialData.images : []
       };
       
-      console.log('✏️ Setting formData to:', newFormData);
+      // console.log('✏️ Setting formData to:', newFormData);
       setFormData(newFormData);
       
       // Only auto-trigger AI agent if morphology/physiology are empty (camera flow, not approval flow)
       if (initialData.name && !initialData.morphology && !initialData.physiology) {
-        console.log('🤖 Marking as camera flow - will auto-trigger AI agent for organism:', initialData.name);
+        // console.log('🤖 Marking as camera flow - will auto-trigger AI agent for organism:', initialData.name);
         setAiOrganismName(initialData.name);
         setIsFromCameraFlow(true); // Mark that this is from camera, allow auto-trigger
         // The AI will be triggered in the next useEffect
@@ -2997,14 +3017,14 @@ const AddOrganismForm = ({ token, isDark, onSuccess, initialData }) => {
         setIsFromCameraFlow(false); // Not from camera, user will click Generate manually
       }
     } else {
-      console.log('⚠️ initialData is empty or null:', initialData);
+      // console.log('⚠️ initialData is empty or null:', initialData);
     }
   }, [initialData]);
 
   // Auto-trigger AI agent when aiOrganismName is set (from camera - only if name is long enough)
   useEffect(() => {
     if (aiOrganismName.trim().length >= 3 && !aiLoading && isFromCameraFlow) {
-      console.log('🤖 Auto-triggering AI agent for camera flow:', aiOrganismName);
+      // console.log('🤖 Auto-triggering AI agent for camera flow:', aiOrganismName);
       handleAiComplete();
     }
   }, [aiOrganismName, isFromCameraFlow]);
@@ -3594,7 +3614,7 @@ const SuggestionModal = ({ isDark, onClose, token }) => {
     setSuccessMessage('');
 
     try {
-      console.log('📤 Submitting suggestion with data:', formData);
+      // console.log('📤 Submitting suggestion with data:', formData);
       const response = await axios.post(`${API}/suggestions`, formData);
       
       if (response.status === 201 || response.status === 200) {
@@ -4024,8 +4044,8 @@ const UsersHistoryTab = ({ token, isDark }) => {
 
   const fetchSuggestions = async () => {
     try {
-      console.log('📡 Fetching suggestions from:', `${API}/admin/suggestions`);
-      console.log('🔑 Token:', token ? 'Present' : 'Missing');
+      // console.log('📡 Fetching suggestions from:', `${API}/admin/suggestions`);
+      // console.log('🔑 Token:', token ? 'Present' : 'Missing');
       
       const response = await axios.get(`${API}/admin/suggestions`, {
         headers: { Authorization: `Bearer ${token}` }
