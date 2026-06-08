@@ -976,8 +976,9 @@ const OrganismDetail = () => {
 
   const shareToWhatsApp = () => {
     const siteName = siteSettings?.website_name || 'ZooMuseum';
-    const organismUrl = `${window.location.origin}/organisms/${id}`;
-    const text = `Check out this amazing organism: *${displayOrganism.name}* (${displayOrganism.scientific_name})\n\n${displayOrganism.description?.substring(0, 100)}...\n\nVisit ${siteName} to learn more:\n${organismUrl}`;
+    const organismUrl = `${window.location.origin}/organism/${id}`;
+    const description = displayOrganism.description?.substring(0, 120) || 'Learn more about this fascinating species';
+    const text = `🌿 *${displayOrganism.name}* 🌿\n\n🔬 *Scientific Name:* ${displayOrganism.scientific_name}\n\n${description}...\n\n📚 Discover more amazing facts about this organism on ${siteName}!\n\n🔗 ${organismUrl}\n\n#Biology #Wildlife #ZooMuseum`;
     const encodedText = encodeURIComponent(text);
     window.open(`https://wa.me/?text=${encodedText}`, '_blank');
     showToast('💬 Sharing on WhatsApp...', 'success', 1000);
@@ -985,24 +986,24 @@ const OrganismDetail = () => {
 
   const shareToFacebook = () => {
     const siteName = siteSettings?.website_name || 'ZooMuseum';
-    const organismUrl = `${window.location.origin}/organisms/${id}`;
+    const organismUrl = `${window.location.origin}/organism/${id}`;
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(organismUrl)}`, '_blank', 'width=600,height=400');
     showToast('👍 Sharing on Facebook...', 'success', 1000);
   };
 
   const shareToTwitter = () => {
     const siteName = siteSettings?.website_name || 'ZooMuseum';
-    const text = `Discover ${displayOrganism.name} (${displayOrganism.scientific_name}) on ${siteName}! Learn amazing facts about this creature. 🦁🐦🦄`;
-    const organismUrl = `${window.location.origin}/organisms/${id}`;
+    const text = `🌍 Just discovered the amazing *${displayOrganism.name}* (${displayOrganism.scientific_name}) on ${siteName}! 🔬\n\nFascinating facts about this wonderful creature. Explore the wonders of biodiversity today! 🦁🌿\n\n#Biology #Wildlife #NatureLovers`;
+    const organismUrl = `${window.location.origin}/organism/${id}`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(organismUrl)}`, '_blank', 'width=600,height=400');
     showToast('🐦 Sharing on Twitter...', 'success', 1000);
   };
 
   const shareViaEmail = () => {
     const siteName = siteSettings?.website_name || 'ZooMuseum';
-    const organismUrl = `${window.location.origin}/organisms/${id}`;
-    const subject = `Check out: ${displayOrganism.name} - ${siteName}`;
-    const body = `Hi,\n\nI found this fascinating organism on ${siteName}:\n\n${displayOrganism.name} (${displayOrganism.scientific_name})\n\n${displayOrganism.description?.substring(0, 150)}...\n\nVisit ${siteName} to learn more:\n${organismUrl}\n\nBest regards`;
+    const organismUrl = `${window.location.origin}/organism/${id}`;
+    const subject = `Discover the fascinating ${displayOrganism.name} on ${siteName} 🌿`;
+    const body = `Hi,\n\nI found this absolutely fascinating organism on ${siteName} and thought you'd love to learn about it!\n\n=== ${displayOrganism.name} ===\n\nScientific Name: ${displayOrganism.scientific_name}\n\n${displayOrganism.description?.substring(0, 200)}...\n\n📚 Visit the link below to explore detailed information, images, and more incredible facts:\n${organismUrl}\n\nI hope you find it as interesting as I did!\n\nBest regards`;
     
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
     showToast('📧 Opening email client...', 'success', 1000);
