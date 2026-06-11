@@ -135,7 +135,7 @@ const BioMuseumAIChatbot = () => {
           <i className="fa-solid fa-times text-2xl sm:text-3xl text-white"></i>
         ) : (
           <img 
-            src="https://res.cloudinary.com/dse4vnxdi/image/upload/v1766857765/BiomuseumIntel_yt5jjk.jpg" 
+            src="https://res.cloudinary.com/doctorwebsite/image/upload/v1781178576/3b74220b-b26a-4ebe-9f37-7fae5546e877_l6dgoc.png" 
             alt="BioMuseum AI" 
             className="w-full h-full object-cover rounded-full"
           />
@@ -153,7 +153,7 @@ const BioMuseumAIChatbot = () => {
           <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-3 sm:p-5 flex justify-between items-center flex-shrink-0">
             <div className="flex items-center gap-3">
               <img 
-                src="https://res.cloudinary.com/dse4vnxdi/image/upload/v1766857765/BiomuseumIntel_yt5jjk.jpg" 
+                src="https://res.cloudinary.com/doctorwebsite/image/upload/v1781178576/3b74220b-b26a-4ebe-9f37-7fae5546e877_l6dgoc.png" 
                 alt="BioMuseum AI" 
                 className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-white"
               />
