@@ -23,9 +23,9 @@ const BioMuseumAIChatbot = () => {
         {
           id: getTimestampIST(),
           type: 'bot',
-          text: 'Hey! I\'m BioMuseum Intelligence !',
+          text: 'Hey! I\'m Zoological Museum Intelligence !',
           timestamp: getCurrentDateIST(),
-          subtext: '“Exploring Life, One Question at a Time.”'
+          subtext: '“Sher se lekar sponge tak... sabka scene explain kar dunga. Bas pucho.”'
         }
       ]);
     }
@@ -108,9 +108,9 @@ const BioMuseumAIChatbot = () => {
       {
         id: getTimestampIST(),
         type: 'bot',
-        text: 'Hey! I\'m BioMuseum Intelligence. How can I help you?',
+        text: 'Hey! I\'m Zoological Museum Intelligence. How can I help you?',
         timestamp: getCurrentDateIST(),
-        subtext: '“Exploring Life, One Question at a Time.”'
+        subtext: '“Sher se lekar sponge tak... sabka scene explain kar dunga. Bas pucho.”'
       }
     ]);
     setConversationHistory([]);
@@ -136,7 +136,7 @@ const BioMuseumAIChatbot = () => {
         ) : (
           <img 
             src="https://res.cloudinary.com/doctorwebsite/image/upload/v1781178576/3b74220b-b26a-4ebe-9f37-7fae5546e877_l6dgoc.png" 
-            alt="BioMuseum AI" 
+            alt="Zoological Museum Intelligence" 
             className="w-full h-full object-cover rounded-full"
           />
         )}
@@ -154,12 +154,12 @@ const BioMuseumAIChatbot = () => {
             <div className="flex items-center gap-3">
               <img 
                 src="https://res.cloudinary.com/doctorwebsite/image/upload/v1781178576/3b74220b-b26a-4ebe-9f37-7fae5546e877_l6dgoc.png" 
-                alt="BioMuseum AI" 
+                alt="Zoological Museum Intelligence" 
                 className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-white"
               />
               <div>
-                <h3 className="font-bold text-lg sm:text-2xl">BioMuseum AI</h3>
-                <p className="text-xs sm:text-sm text-green-100 mt-0.5">Ask me anything about biology</p>
+                <h3 className="font-bold text-lg sm:text-2xl">Zoological Museum Intelligence</h3>
+                <p className="text-xs sm:text-sm text-green-100 mt-0.5">Ask Me Anything About The World of Biology</p>
               </div>
             </div>
             <button
